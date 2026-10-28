@@ -138,7 +138,11 @@ E.evPath = (sub, id) => `events/${S.cur}/${sub}` + (id ? `/${id}` : '');
 
 /* ---------- feedback ---------- */
 let toastT;
-E.toast = (msg, ic='check_circle') => { const s = $('#snack'); s.innerHTML = `${E.icon(ic,false,'sm')}<span>${esc(msg)}</span>`; s.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => s.classList.remove('show'), 3000); };
+E.toast = (msg, ic='check_circle', act) => {
+  const s = $('#snack'); s.innerHTML = `${E.icon(ic,false,'sm')}<span>${esc(msg)}</span>${act ? `<button class="snack-act" type="button">${esc(act.label)}</button>` : ''}`;
+  if(act) s.querySelector('.snack-act').onclick = () => { s.classList.remove('show', 'act'); act.fn(); };
+  s.classList.toggle('act', !!act); s.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => s.classList.remove('show', 'act'), act ? 5000 : 3000);
+};
 E.writeErr = e => {
   const c = e && e.code;
   if(c === 'invalid_argument'){ S.canWrite = false; E.render && E.render(); E.toast('This view can’t save changes.', 'info'); }
