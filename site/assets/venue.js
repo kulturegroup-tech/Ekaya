@@ -12,7 +12,7 @@ const R = (x, y, w, h, o={}) => `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" h
 const Rc = (cx, cy, w, h, o={}) => R(cx - w/2, cy - h/2, w, h, o);
 const C = (cx, cy, r, o={}) => `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}" fill="${o.fill || 'none'}"${at(o)}/>`;
 const P = (d, o={}) => `<path d="${d}" fill="${o.fill || 'none'}"${at(o)}/>`;
-const T = (x, y, s, size, o={}) => `<text x="${f(x)}" y="${f(y)}" font-size="${size}" text-anchor="middle" dominant-baseline="central" fill="${o.fill || 'var(--plan-ink)'}" font-family="Google Sans Flex, system-ui, sans-serif" font-weight="${o.fw || 650}"${o.ls ? ` letter-spacing="${o.ls}"` : ''}>${esc(s)}</text>`;
+const T = (x, y, s, size, o={}) => `<text x="${f(x)}" y="${f(y)}" font-size="${size}" text-anchor="middle" dominant-baseline="central" fill="${o.fill || 'var(--plan-ink)'}" font-family="-apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif" font-weight="${o.fw || 650}"${o.ls ? ` letter-spacing="${o.ls}"` : ''}>${esc(s)}</text>`;
 const PAPER = 'var(--plan-paper)', INK = 'var(--plan-ink)', WALL = 'var(--plan-wall)';
 const COL = {seat:'var(--c-seat)', food:'var(--c-food)', stage:'var(--c-stage)', decor:'var(--c-decor)', light:'var(--c-light)', fire:'var(--c-fire)', util:'var(--c-util)', zone:'var(--c-zone)'};
 const chair = (x, y, rot, c) => R(-0.21, -0.19, 0.42, 0.38, {rx:0.1, fill:PAPER, s:c, t:`translate(${f(x)} ${f(y)}) rotate(${f(rot)})`});
@@ -640,8 +640,8 @@ async function exportImage(st){
     x.fillStyle = cs.getPropertyValue('--plan-paper').trim() || '#fff'; x.fillRect(0, 0, c.width, c.height);
     x.drawImage(img, 0, head, Wpx, Hpx);
     x.fillStyle = cs.getPropertyValue('--plan-ink').trim() || '#222';
-    x.font = '600 64px "Cormorant Garamond", Georgia, serif'; x.fillText(ev ? ev.name : 'Venue plan', 60, 92);
-    x.font = '600 26px "Google Sans Flex", system-ui, sans-serif'; x.fillStyle = cs.getPropertyValue('--gold').trim() || '#a80';
+    x.font = '500 60px "Newsreader", Georgia, serif'; x.fillText(ev ? ev.name : 'Venue plan', 60, 92);
+    x.font = '600 26px "Inter", system-ui, sans-serif'; x.fillStyle = cs.getPropertyValue('--gold').trim() || '#a80';
     const seats = p.items.reduce((a, it) => a + seatsOf(it), 0);
     x.fillText(`${(p.name || 'Venue').toUpperCase()} · ${fmtLen(st, p.w)} × ${fmtLen(st, p.h)} · ${seats} SEATS`, 62, 132);
     const blob = await E.toBlob(c, 0.92, 'image/png');

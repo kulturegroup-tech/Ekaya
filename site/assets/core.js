@@ -187,6 +187,12 @@ E.motif = ev => {
   }
   return `<svg class="motif" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mixHex(bg, '#ffffff', 0.1)}"/><stop offset="1" stop-color="${mixHex(bg, '#000000', 0.28)}"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#${id})"/>${g}</svg>`;
 };
+/* paper & foil ornaments: the diya divider (the flame from the Ekāya mark) and a marigold toran */
+E.divider = (w = 140) => `<svg class="divider" viewBox="-75 -12 150 24" width="${w}" height="${Math.round(w * 24 / 150)}" aria-hidden="true"><line x1="-72" y1="0" x2="-16" y2="0" stroke="url(#foilH)" stroke-width="1"/><line x1="16" y1="0" x2="72" y2="0" stroke="url(#foilH)" stroke-width="1"/><circle cx="-11" cy="0" r="1.5" fill="url(#foil)"/><circle cx="11" cy="0" r="1.5" fill="url(#foil)"/><path transform="translate(0 2) scale(.62)" d="M0-15C6-7 7 2 0 8-7 2-6-7 0-15Z" fill="url(#foil)"/></svg>`;
+E.toran = () => { let b = ''; for(let k = 0; k < 6; k++){ const x0 = k * 55; for(let j = 0; j < 10; j++){ const t = j / 9; b += `<circle cx="${(x0 + 55 * t).toFixed(1)}" cy="${(6 + 14 * Math.sin(Math.PI * t)).toFixed(1)}" r="2.6" fill="url(#foil)"/>`; } for(let j = 0; j < 4; j++) b += `<circle cx="${x0 + 55}" cy="${9 + j * 6}" r="${j === 3 ? 3.4 : 2.2}" fill="url(#foil)"/>`; } return `<svg class="toran" viewBox="0 0 330 36" preserveAspectRatio="none" aria-hidden="true">${b}</svg>`; };
+/* which card stock an event is printed on: chosen in the cover sheet, or by type */
+E.stockOf = ev => ev.cover && ev.cover.stock ? ev.cover.stock : (['wedding', 'sangeet', 'anniversary'].includes(ev.type) ? 'maroon' : 'ivory');
+E.hasPhoto = ev => !!(ev.cover && (ev.cover.img || ev.cover.asset || ev.cover.src));
 E.coverHtml = (ev, cls = '') => {
   const c = ev.cover, src = c && E.imgSrc ? E.imgSrc(c) : '';
   return `<div class="cover ${cls}${src ? ' photo' : ''}">${src ? `<img src="${esc(src)}" alt="" loading="lazy">` : E.motif(ev)}<i class="cover-fade"></i></div>`;

@@ -114,16 +114,20 @@ function homeView(){
     + (past.length ? `<div class="section-label"><span class="eyebrow">Past events</span></div><div class="ev-list">${past.map(invite).join('')}</div>` : '');
 }
 function invite(e){
-  const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date);
+  const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), stock = E.stockOf(e), photo = E.hasPhoto(e);
   const meta = [E.fmtTime(e.time), e.venue].filter(Boolean).map(esc).join(' · ');
-  return `<button class="invite plain" data-act="open-event" data-id="${esc(e.id)}">
-    ${E.coverHtml(e)}
-    <div class="invite-over"><span class="type-chip on-cover">${icon(t.icon)}${t.label}</span>${n == null ? '' : n === 0 ? `<div class="count on-cover"><b class="word">Today</b></div>` : n > 0 ? `<div class="count on-cover"><b>${n}</b><span>${n === 1 ? 'day to go' : 'days to go'}</span></div>` : `<div class="count on-cover"><span>${E.fmtShort(e.date)}</span></div>`}</div>
-    <div class="invite-body"><h3>${esc(e.name)}</h3>
-    <div class="when">${e.date ? `<b>${E.fmtLong(e.date).replace(/, \d{4}$/, '')}</b>` : `<b>Date to be set</b>`}${meta ? `<span class="muted small">${meta}</span>` : ''}</div></div>
-    ${strip(e)}</button>`;
+  const when = e.date ? new Date(e.date + 'T00:00').toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'}) : 'Date to be set';
+  const days = n == null ? '' : n === 0 ? `<span class="days"><b class="foil-num word">Today</b></span>` : n > 0 ? `<span class="days"><b class="foil-num">${n}</b><small>${n === 1 ? 'day to go' : 'days to go'}</small></span>` : `<span class="days"><small>${E.fmtShort(e.date)}</small></span>`;
+  return `<button class="invite stock stock-${stock}${photo ? ' has-photo' : ''}" data-act="open-event" data-id="${esc(e.id)}">
+    ${photo ? E.coverHtml(e, 'inv-photo') : ''}<span class="foil-frame" aria-hidden="true"></span>
+    ${!photo && stock === 'maroon' ? E.toran() : ''}
+    <p class="smallcaps">${esc(t.label)} &nbsp;·&nbsp; ${esc(when)}</p>
+    <h3>${esc(e.name)}</h3>
+    ${E.divider(130)}
+    <div class="inv-row"><span>${meta || '&nbsp;'}</span>${days}</div>
+  </button>`;
 }
-const newTile = () => `<button class="invite plain new" data-act="new-event" style="align-items:center;justify-content:center;text-align:center;border-style:dashed;border-color:var(--gold-line)"><span class="empty-ic">${icon('add')}</span><h3 style="font-size:32px">Plan a new event</h3><span class="muted small">Weddings, birthdays, Diwali, corporate…</span></button>`;
+const newTile = () => `<button class="invite stock new" data-act="new-event" style="align-items:center;justify-content:center;text-align:center;border-style:dashed;border-color:var(--gold-line)"><span class="empty-ic">${icon('add')}</span><h3 style="font-size:32px">Plan a new event</h3><span class="muted small">Weddings, birthdays, Diwali, corporate…</span></button>`;
 function homeEmpty(){
   if(!S.canWrite) return `<section class="empty plain"><span class="empty-ic">${icon('celebration')}</span><h3>No events yet</h3><p>Events appear here once they’re added.</p></section>`;
   return `<section class="empty plain foil"><span class="empty-ic">${icon('celebration')}</span><h3>Plan your first event</h3><p>Pick a type to start with a checklist, budget categories and a theme palette.</p>
@@ -131,7 +135,7 @@ function homeEmpty(){
 }
 
 /* ---------- overview: a compact summary beside large venue and mood previews ---------- */
-const sumRow = (act, ic, label, value, sub, extra = '') => `<button class="sum-row" ${act}><span class="sum-ic">${icon(ic)}</span><span class="sum-main"><span class="sum-l">${label}</span><b>${value}</b>${sub ? `<small>${sub}</small>` : ''}${extra}</span>${icon('chevron_right')}</button>`;
+const sumRow = (act, ic, label, value, sub, extra = '') => `<button class="sum-row" ${act}><span class="leader"><span class="sum-l">${label}</span><i class="dots" aria-hidden="true"></i><b>${value}</b></span>${sub ? `<small>${sub}</small>` : ''}${extra}</button>`;
 function overviewView(ev){
   const t = E.TYPES[ev.type] || E.TYPES.party, n = E.daysUntil(ev.date), st = E.stats(ev, S.people, S.expenses);
   let cd = '';
@@ -150,16 +154,23 @@ function overviewView(ev){
   const notes = S.mood.filter(m => m.kind === 'note').length, pal = ev.theme?.palette || [];
   const total = st.rows.length, pct = k => total ? st.rsvp[k] / total * 100 : 0;
   const runNext = E.run.nowNext(), nextRun = runNext.now || runNext.next;
-  const hero = `<section class="ov-hero plain">
-      ${E.coverHtml(ev, 'big')}
-      <div class="ov-hero-over"><span class="type-chip on-cover">${icon(t.icon)}${t.label}</span><span class="grow"></span>${S.canWrite ? `<button class="btn sm cover-btn" data-act="edit-cover">${icon('photo_camera')}Cover</button><button class="btn sm cover-btn" data-act="edit-event">${icon('edit')}Edit</button>` : ''}</div>
-      <div class="hero-body"><div><h1 class="ev-title">${esc(ev.name)}</h1><ul class="meta">${meta}</ul></div>${cd ? `<div class="countdown">${cd}</div>` : ''}</div>
-      ${strip(ev)}
+  const stock = E.stockOf(ev), photo = E.hasPhoto(ev);
+  const hero = `<section class="ov-hero stock stock-${stock}${photo ? ' has-photo' : ''}">
+      ${photo ? E.coverHtml(ev, 'big') : ''}<span class="foil-frame" aria-hidden="true"></span>
+      ${!photo && stock === 'maroon' ? E.toran() : ''}
+      <div class="inv-body">
+        <p class="smallcaps">${icon(t.icon, false, 'xs')} ${esc(t.label)}${ev.time ? ` &nbsp;·&nbsp; ${E.fmtTime(ev.time)}` : ''}</p>
+        <h1 class="ev-title">${esc(ev.name)}</h1>
+        ${E.divider(170)}
+        <ul class="meta">${meta}</ul>
+        ${cd ? `<div class="countdown">${cd}</div>` : ''}
+        ${S.canWrite ? `<div class="hero-actions"><button class="btn text sm" data-act="edit-cover">${icon('style')}Change card</button><button class="btn text sm" data-act="edit-event">${icon('edit')}Edit details</button></div>` : ''}
+      </div>
     </section>`;
   const money = st.contri
     ? sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Contri', `${inr(st.collected)} collected`, `${st.target ? `of ${inr(st.target)}` : 'set a per-person amount'}${st.pending ? ` · <span class="bad">${inr(st.pending)} still due</span>` : st.target ? ' · all paid' : ''}`, st.target ? E.lin(st.collected / st.target, 'thin' + (st.pending ? '' : ' good')) : '')
     : sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Budget', `${inr(st.spent)} spent`, st.budget ? `of ${inr(st.budget)} planned` : `${S.expenses.length} expenses logged`, st.budget ? E.lin(st.spent / st.budget, 'thin' + (st.spent > st.budget ? ' bad' : '')) : '');
-  const summary = `<section class="card plain sum"><div class="card-h"><span class="eyebrow">At a glance</span></div><div class="sum-list">
+  const summary = `<section class="card stock sum"><p class="smallcaps menu-h">At a glance</p><div class="sum-list">
       ${sumRow('data-act="tab" data-tab="guests"', 'groups', 'Guests', `${st.headcount} coming`, total ? `${total} invited · ${st.rsvp.maybe} maybe · ${st.rsvp.invited} not replied` : 'No guests added yet', total ? `<span class="rsvp-bar thin">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</span>` : '')}
       ${money}
       ${sumRow('data-act="sub" data-tab="plan" data-sub="run"', 'schedule', 'Run sheet', S.run.length ? `${S.run.length} ${S.run.length === 1 ? 'moment' : 'moments'} planned` : 'Not started', nextRun ? `${runNext.now ? 'Now' : 'First up'} · ${nextRun.time ? E.fmtTime(nextRun.time) : ''} ${esc(nextRun.title)}` : 'Plan the day hour by hour')}
@@ -185,10 +196,10 @@ const DIETS = ['Veg', 'Jain', 'Non-veg', 'Vegan'];
 const GROUPS = ['Family', 'Friends', 'Work', 'Neighbours'];
 const first = n => String(n || '').split(' ')[0];
 function payTag(r){
-  if(r.waived) return `<span class="tag">Share waived</span>`;
-  if(r.status === 'paid') return `<span class="tag good">${icon('check', false)}Paid</span>`;
-  if(r.status === 'part') return `<span class="tag warn">${inr(r.due)} due</span>`;
-  if(r.status === 'pending') return `<span class="tag bad">${inr(r.due)} due</span>`;
+  if(r.waived) return `<span class="ink-note">Share waived</span>`;
+  if(r.status === 'paid') return `<span class="stamp">Paid</span>`;
+  if(r.status === 'part') return `<span class="ink-due part">${inr(r.due)} due</span>`;
+  if(r.status === 'pending') return `<span class="ink-due">${inr(r.due)} due</span>`;
   return '';
 }
 const eyebrow = ev => `<p class="eyebrow gold">${esc(ev.name)}</p>`;
@@ -729,9 +740,9 @@ const coverOf = m => m.img ? {img:m.img} : m.asset ? {asset:m.asset} : m.src ? {
 const sameCover = (a, b) => !!(a && b && ((a.img && a.img === b.img) || (a.asset && a.asset === b.asset) || (a.src && a.src === b.src)));
 function coverSheet(ev){
   const imgs = S.mood.filter(m => m.kind === 'image').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  openSheet({id:'cover', title:'Event cover', body:`<p class="muted">Shown on the event card and at the top of the overview. Guests never see it.</p>
+  openSheet({id:'cover', title:'Event card', body:`<p class="muted">How this event’s card looks on the home screen and at the top of the overview. Guests never see it.</p>
     <div class="cover-grid">
-      <button class="cover-opt" type="button" data-cover="pattern" aria-pressed="${!ev.cover}">${E.coverHtml({...ev, cover:null})}<span>${E.motifName(ev.type)} in your palette</span></button>
+      ${['ivory', 'maroon'].map(k => `<button class="cover-opt" type="button" data-cover="stock-${k}" aria-pressed="${!E.hasPhoto(ev) && E.stockOf(ev) === k}"><div class="cover stock-swatch stock stock-${k}"><span class="foil-frame"></span>${k === 'maroon' ? E.toran() : ''}${E.divider(90)}</div><span>${k === 'ivory' ? 'Ivory card stock' : 'Maroon card stock'}</span></button>`).join('')}
       ${imgs.map(m => `<button class="cover-opt" type="button" data-cover="${esc(m.id)}" aria-pressed="${sameCover(ev.cover, m)}"><div class="cover photo"><img src="${esc(E.imgSrc(m))}" alt=""></div><span>${esc(m.caption || 'From the mood board')}</span></button>`).join('')}
       <button class="cover-opt add" type="button" data-cover="upload"><div class="cover add-ic">${icon('add_photo_alternate', false, 'lg')}</div><span>Upload a photo</span></button>
     </div>`,
@@ -747,8 +758,8 @@ function coverSheet(ev){
       });
       inp.click(); return;
     }
-    const cover = k === 'pattern' ? null : coverOf(S.mood.find(x => x.id === k) || {});
-    if(await save(Store.update(`events/${ev.id}`, {cover}))){ closeSheet(); toast(cover ? 'Cover updated' : `${E.motifName(ev.type)} cover set`, 'photo_camera'); }
+    const cover = k.startsWith('stock-') ? {stock:k.slice(6)} : coverOf(S.mood.find(x => x.id === k) || {});
+    if(await save(Store.update(`events/${ev.id}`, {cover}))){ closeSheet(); toast(k.startsWith('stock-') ? `${k === 'stock-maroon' ? 'Maroon' : 'Ivory'} card stock` : 'Photo cover set', 'photo_camera'); }
   })});
 }
 

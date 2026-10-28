@@ -89,23 +89,23 @@ function lightbox(ev, k){
 async function card(ev){
   const id = ev.gallery.id, url = guestUrl(id);
   try{
-    await Promise.all([document.fonts.load('600 90px "Cormorant Garamond"'), document.fonts.load('italic 500 56px "Cormorant Garamond"'), document.fonts.load('650 28px "Google Sans Flex"')]).catch(() => {});
+    await Promise.all([document.fonts.load('500 90px "Newsreader"'), document.fonts.load('italic 400 56px "Newsreader"'), document.fonts.load('650 28px "Inter"')]).catch(() => {});
     const W = 1200, H = 1680, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
     x.fillStyle = '#FBF6EE'; x.fillRect(0, 0, W, H);
     x.strokeStyle = 'rgba(176,132,58,.55)'; x.lineWidth = 3; x.strokeRect(40, 40, W - 80, H - 80); x.lineWidth = 1.5; x.strokeRect(58, 58, W - 116, H - 116);
-    x.textAlign = 'center'; x.fillStyle = '#9C7637'; x.font = '650 28px "Google Sans Flex", system-ui, sans-serif'; if('letterSpacing' in x) x.letterSpacing = '10px'; x.fillText('PHOTO WALL', W / 2, 190); if('letterSpacing' in x) x.letterSpacing = '0px';
-    x.fillStyle = '#1C1611'; let fs = 108; x.font = `600 ${fs}px "Cormorant Garamond", Georgia, serif`; while(x.measureText(ev.name).width > W - 220 && fs > 56){ fs -= 4; x.font = `600 ${fs}px "Cormorant Garamond", Georgia, serif`; } x.fillText(ev.name, W / 2, 320);
-    if(ev.date){ x.fillStyle = '#6E6156'; x.font = '500 34px "Google Sans Flex", system-ui, sans-serif'; x.fillText(E.fmtLong(ev.date), W / 2, 385); }
+    x.textAlign = 'center'; x.fillStyle = '#9C7637'; x.font = '650 28px "Inter", system-ui, sans-serif'; if('letterSpacing' in x) x.letterSpacing = '10px'; x.fillText('PHOTO WALL', W / 2, 190); if('letterSpacing' in x) x.letterSpacing = '0px';
+    x.fillStyle = '#1C1611'; let fs = 108; x.font = `500 ${fs}px "Newsreader", Georgia, serif`; while(x.measureText(ev.name).width > W - 220 && fs > 56){ fs -= 4; x.font = `500 ${fs}px "Newsreader", Georgia, serif`; } x.fillText(ev.name, W / 2, 320);
+    if(ev.date){ x.fillStyle = '#6E6156'; x.font = '500 34px "Inter", system-ui, sans-serif'; x.fillText(E.fmtLong(ev.date), W / 2, 385); }
     const qr = window.qrcode(0, 'M'); qr.addData(url); qr.make(); const n = qr.getModuleCount(), size = 660, cell = size / (n + 4), ox = (W - size) / 2, oy = 460;
     x.fillStyle = '#ffffff'; x.beginPath(); x.roundRect ? x.roundRect(ox - 20, oy - 20, size + 40, size + 40, 28) : x.rect(ox - 20, oy - 20, size + 40, size + 40); x.fill();
     x.fillStyle = '#1C1611'; for(let r = 0; r < n; r++) for(let q = 0; q < n; q++) if(qr.isDark(r, q)) x.fillRect(Math.floor(ox + (q + 2) * cell), Math.floor(oy + (r + 2) * cell), Math.ceil(cell), Math.ceil(cell));
-    x.fillStyle = '#1C1611'; x.font = 'italic 500 64px "Cormorant Garamond", Georgia, serif'; x.fillText('Scan to add your photos', W / 2, 1250);
-    x.fillStyle = '#6E6156'; x.font = '500 30px "Google Sans Flex", system-ui, sans-serif'; x.fillText('and see everyone’s from the night', W / 2, 1310);
-    x.fillStyle = '#A29486'; x.font = '500 24px "Google Sans Flex", system-ui, sans-serif'; x.fillText(url.replace(/^https?:\/\//, ''), W / 2, 1385);
+    x.fillStyle = '#1C1611'; x.font = 'italic 400 64px "Newsreader", Georgia, serif'; x.fillText('Scan to add your photos', W / 2, 1250);
+    x.fillStyle = '#6E6156'; x.font = '500 30px "Inter", system-ui, sans-serif'; x.fillText('and see everyone’s from the night', W / 2, 1310);
+    x.fillStyle = '#A29486'; x.font = '500 24px "Inter", system-ui, sans-serif'; x.fillText(url.replace(/^https?:\/\//, ''), W / 2, 1385);
     const pal = (ev.theme?.palette || []).map(p => okHex(p.hex)); if(pal.length){ const sw = (W - 116) / pal.length; pal.forEach((h, i) => { x.fillStyle = h; x.fillRect(58 + i * sw, H - 58 - 22, sw + 1, 22); }); }
     const logo = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = '/assets/brand/lockup-maroon.svg'; });
     if(logo){ const lh = 132, lw = lh * 1208 / 1066; x.drawImage(logo, (W - lw) / 2, H - 92 - lh, lw, lh); }
-    else { x.fillStyle = '#682127'; x.font = '600 40px "Cormorant Garamond", Georgia, serif'; x.fillText('EKĀYA', W / 2, H - 130); }
+    else { x.fillStyle = '#682127'; x.font = '600 40px "Newsreader", Georgia, serif'; x.fillText('EKĀYA', W / 2, H - 130); }
     const blob = await E.toBlob(c, 0.95, 'image/png'), file = new File([blob], `${E.slug(ev.name)}-photo-wall-qr.png`, {type:'image/png'});
     if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file], title:`${ev.name} photo wall`}); return; }catch(e){ if(e.name === 'AbortError') return; } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();

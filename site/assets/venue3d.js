@@ -117,7 +117,7 @@ function build(canvas, plan, ev, opts){
   }
   function labelSprite(text){
     const c = document.createElement('canvas'), x = c.getContext('2d'); c.width = 256; c.height = 96;
-    x.font = '600 52px "Google Sans Flex", system-ui, sans-serif'; const tw = Math.min(244, x.measureText(text).width + 40);
+    x.font = '600 52px "Inter", system-ui, sans-serif'; const tw = Math.min(244, x.measureText(text).width + 40);
     x.fillStyle = 'rgba(20,14,18,.78)'; const r = 30, bx = (256 - tw) / 2; x.beginPath(); x.moveTo(bx + r, 18); x.arcTo(bx + tw, 18, bx + tw, 78, r); x.arcTo(bx + tw, 78, bx, 78, r); x.arcTo(bx, 78, bx, 18, r); x.arcTo(bx, 18, bx + tw, 18, r); x.fill();
     x.fillStyle = '#EBCF98'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 50);
     const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding;
