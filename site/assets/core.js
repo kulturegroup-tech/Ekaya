@@ -132,7 +132,7 @@ E.Store = (() => {
 
 /* ---------- state ---------- */
 const S = E.S = { canWrite:true, events:[], evLoaded:false, cur:null, tab:'overview', sub:{plan:'venue', budget:'collect'}, filter:'all', query:'', doneOpen:false,
-  people:[], expenses:[], payments:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null, home:{} };
+  people:[], expenses:[], payments:[], income:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null, home:{} };
 E.curEv = () => S.events.find(e => e.id === S.cur);
 E.evPath = (sub, id) => `events/${S.cur}/${sub}` + (id ? `/${id}` : '');
 
@@ -207,7 +207,7 @@ E.coverHtml = (ev, cls = '') => {
    older receipts stored on the guest (p.payments) are still counted. */
 const hasCustom = p => p.expected !== null && p.expected !== undefined && p.expected !== '';
 E.receipts = (p, payments) => (p.payments || []).map(x => ({...x, legacy:true})).concat((payments || []).filter(x => x.guestId === p.id));
-E.stats = (ev, people, expenses, payments = E.S.payments) => {
+E.stats = (ev, people, expenses, payments = E.S.payments, income = E.S.income) => {
   const contri = E.contriOn(ev), per = +ev.perHead || 0;
   const ids = new Set(people.map(p => p.id));
   const rows = people.map(p => {
@@ -232,17 +232,27 @@ E.stats = (ev, people, expenses, payments = E.S.payments) => {
   const pending = rows.reduce((a,r) => a + r.due, 0);
   const sharers = rows.filter(r => r.expected > 0 || r.contributed > 0);
   // settle-up weights: agreed shares when set, otherwise people (1 + plus-ones); waived guests carry none
+  // money from family and others goes into the pot without a share; it reduces what friends split
+  const otherIn = (income || []).reduce((a,x) => a + (+x.amount||0), 0);
+  const net = Math.max(0, spent - otherIn), surplus = Math.max(0, otherIn - spent);
   const byShare = sharers.some(r => r.expected > 0);
   sharers.forEach(r => { r.weight = byShare ? r.expected : (r.waived ? 0 : r.people); });
   const totalW = sharers.reduce((a,r) => a + r.weight, 0);
-  sharers.forEach(r => { r.fair = totalW ? spent * r.weight / totalW : 0; r.bal = Math.round(r.contributed - r.fair); });
+  sharers.forEach(r => { r.fair = totalW ? net * r.weight / totalW : 0; r.bal = Math.round(r.contributed - r.fair); });
   const splitPeople = sharers.filter(r => r.weight > 0).reduce((a,r) => a + r.people, 0);
+  // the collection plan: how many people are expected to chip in, and how much family money is coming
+  const planPeople = +ev.contriPeople || 0, otherTarget = +ev.otherTarget || 0;
+  const listedPeople = rows.filter(r => r.expected > 0).reduce((a,r) => a + r.people, 0);
+  const paidPeople = rows.filter(r => r.expected > 0 && r.status === 'paid').reduce((a,r) => a + r.people, 0);
+  const contriTarget = planPeople && per ? per * planPeople : target;
+  const planTotal = contriTarget + otherTarget;
   const uniform = sharers.filter(r => r.weight > 0).every(r => !r.custom);
   const count = k => rows.filter(r => r.rsvp === k).length;
   const going = rows.filter(r => r.rsvp === 'going');
-  return {contri, rows, target, collected, potIn, directIn, spent, potSpent, inHand:potIn - potSpent, pending,
+  return {contri, rows, target, collected, potIn, directIn, otherIn, net, surplus, collectedAll:collected + otherIn, planPeople, otherTarget, listedPeople, paidPeople, toJoin:planPeople ? Math.max(0, planPeople - listedPeople) : 0, contriTarget, planTotal,
+    spent, potSpent, inHand:potIn + otherIn - potSpent, pending,
     pendingCount:rows.filter(r => r.due > 0).length, paidCount:rows.filter(r => r.status === 'paid').length,
-    budget:(+ev.budget || target), sharers, splitPeople, uniform, perPerson: splitPeople ? spent / splitPeople : 0,
+    budget:(+ev.budget || planTotal), sharers, splitPeople, uniform, perPerson: splitPeople ? net / splitPeople : 0,
     rsvp:{going:count('going'), maybe:count('maybe'), no:count('no'), invited:count('invited')},
     headcount: going.reduce((a,r) => a + r.people, 0)};
 };

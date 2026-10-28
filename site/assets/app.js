@@ -10,7 +10,7 @@ const lsSet = (k, v) => { try{ if(v === null) localStorage.removeItem(k); else l
 
 /* ---------- render ---------- */
 let lastKey = '';
-const SUBCOLS = ['people','expenses','payments','run','mood','tasks','venue'];
+const SUBCOLS = ['people','expenses','payments','income','run','mood','tasks','venue'];
 const TABS = [['overview','space_dashboard','Overview'],['guests','groups','Guests'],['plan','architecture','Plan'],['budget','account_balance_wallet','Budget'],['photos','photo_library','Photos']];
 const PLAN_SUB = [['venue','map','Venue'],['run','schedule','Run sheet'],['mood','auto_awesome_mosaic','Mood board'],['tasks','checklist','Checklist']];
 const BUDGET_SUB = [['collect','payments','Collections'],['expenses','receipt_long','Expenses'],['settle','balance','Settle up']];
@@ -115,7 +115,7 @@ function homeView(){
   const rest = up.filter(e => e !== next);
   return `<div class="home">
     <div class="h-main">${head(sub)}${localOfferCard()}
-      ${next ? `<div class="h-feature">${featureCard(next)}</div>` : `<div class="h-feature">${homeEmpty()}</div>`}
+      ${next ? `<div class="h-feature">${featureCard(next)}${S.canWrite ? `<div class="h-quick">${E.contriOn(next) ? `<button class="btn" data-act="quick-collect" data-id="${esc(next.id)}">${icon('currency_rupee')}Record a payment</button>` : ''}<button class="btn ghost" data-act="quick-guests" data-id="${esc(next.id)}">${icon('person_add')}Add guests</button><button class="btn ghost" data-act="quick-money" data-id="${esc(next.id)}">${icon('account_balance_wallet')}Money</button></div>` : ''}</div>` : `<div class="h-feature">${homeEmpty()}</div>`}
       ${up.length ? `<div class="h-more">${rest.length ? `<div class="section-label"><span class="eyebrow">Also coming up</span></div>` : ''}<div class="ev-list">${rest.map(invite).join('')}${S.canWrite ? newTile() : ''}</div></div>` : ''}
       ${past.length ? `<div class="h-past"><div class="section-label"><span class="eyebrow">Past events</span></div><div class="ev-list">${past.map(invite).join('')}</div></div>` : ''}
     </div>
@@ -127,7 +127,7 @@ function featureCard(e){
   const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), stock = E.stockOf(e), photo = E.hasPhoto(e), d = S.home[e.id] || {};
   const when = e.date ? new Date(e.date + 'T00:00').toLocaleDateString('en-IN', innerWidth < 640 ? {weekday:'short', day:'numeric', month:'short'} : {weekday:'long', day:'numeric', month:'long'}) : 'Date to be set';
   const loaded = d.people && d.expenses && d.tasks;
-  const st = loaded ? E.stats(e, d.people, d.expenses, d.payments || []) : null;
+  const st = loaded ? E.stats(e, d.people, d.expenses, d.payments || [], d.income || []) : null;
   const done = loaded ? d.tasks.filter(x => x.done).length : 0;
   const fc = E.widgets.eventForecast(e);
   const stat = (v, l) => `<div><b>${v}</b><small>${l}</small></div>`;
@@ -139,7 +139,7 @@ function featureCard(e){
     ${E.divider(150)}
     <p class="feat-meta">${[E.fmtTime(e.time), e.venue].filter(Boolean).map(esc).join(' · ') || 'Add the time and venue'}</p>
     ${n != null && n >= 0 ? `<div class="feat-cd"><b class="foil-num${n === 0 ? ' word' : ''}">${n === 0 ? 'Today' : n}</b>${n ? `<small>${n === 1 ? 'day to go' : 'days to go'}</small>` : ''}</div>` : ''}
-    <div class="feat-stats">${st ? stat(st.headcount, 'coming') + (st.contri ? stat(inr(st.collected), st.target ? `of ${inr(st.target)}` : 'collected') : stat(inr(st.spent), 'spent')) + stat(`${done}/${d.tasks.length}`, 'tasks done') : stat('·', 'coming') + stat('·', 'collected') + stat('·', 'tasks done')}</div>
+    <div class="feat-stats">${st ? stat(st.headcount, 'coming') + (st.contri ? stat(inr(st.collectedAll), st.planTotal ? `of ${inr(st.planTotal)}` : 'collected') : stat(inr(st.spent), 'spent')) + stat(`${done}/${d.tasks.length}`, 'tasks done') : stat('·', 'coming') + stat('·', 'collected') + stat('·', 'tasks done')}</div>
     ${fc ? `<p class="feat-wx">${E.widgets.wx(fc.sym, 22)}<span>Forecast for the evening: <b>${fc.temp}°</b>, ${esc(fc.text)}${fc.rain > 0.2 ? ' · keep a backup for rain' : ''}</span></p>` : ''}
   </button>`;
 }
@@ -150,7 +150,7 @@ function weekCard(up){
   up.slice(0, 6).forEach(e => (S.home[e.id]?.tasks || []).filter(t => !t.done && t.due && t.due <= lim).forEach(t => items.push({e, t})));
   items.sort((a, b) => a.t.due < b.t.due ? -1 : a.t.due > b.t.due ? 1 : 0);
   const label = due => due < today ? 'Overdue' : due === today ? 'Today' : due === addDays(today, 1) ? 'Tomorrow' : new Date(due + 'T00:00').toLocaleDateString('en-IN', {weekday:'short', day:'numeric'});
-  const money = up.slice(0, 1).map(e => { const d = S.home[e.id] || {}; if(!d.people || !d.expenses) return ''; const st = E.stats(e, d.people, d.expenses, d.payments || []); return st.contri && st.pending ? `<button class="wk-row money" data-act="open-due" data-id="${esc(e.id)}"><span class="wk-date">${icon('payments', false, 'sm')}</span><span class="grow"><b>${inr(st.pending)} still to collect</b><small>${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} · ${esc(e.name)}</small></span>${icon('chevron_right')}</button>` : ''; }).join('');
+  const money = up.slice(0, 1).map(e => { const d = S.home[e.id] || {}; if(!d.people || !d.expenses) return ''; const st = E.stats(e, d.people, d.expenses, d.payments || [], d.income || []); return st.contri && st.pending ? `<button class="wk-row money" data-act="open-due" data-id="${esc(e.id)}"><span class="wk-date">${icon('payments', false, 'sm')}</span><span class="grow"><b>${inr(st.pending)} still to collect</b><small>${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} · ${esc(e.name)}</small></span>${icon('chevron_right')}</button>` : ''; }).join('');
   const rows = items.slice(0, 6).map(({e, t}) => `<button class="wk-row" data-act="open-tasks" data-id="${esc(e.id)}"><span class="wk-date${t.due < today ? ' late' : ''}">${label(t.due)}</span><span class="grow"><b>${esc(t.text)}</b><small>${esc(e.name)}</small></span>${icon('chevron_right')}</button>`).join('');
   return `<section class="card stock week"><p class="smallcaps menu-h">This week</p>${money}${rows || (money ? '' : `<p class="wk-empty">A clear week. Give tasks a due date and they’ll gather here.</p>`)}${items.length > 6 ? `<p class="wk-more">${items.length - 6} more on the checklists</p>` : ''}</section>`;
 }
@@ -163,7 +163,7 @@ function ensureHomeData(){
   if(key === homeFor) return;
   stopHomeData(); homeFor = key;
   const first = up.find(e => e.date) || up[0];
-  up.forEach(e => (e === first ? ['people', 'payments', 'expenses', 'tasks'] : ['tasks']).forEach(k => homeUnsubs.push(Store.subscribe(`events/${e.id}/${k}`, rows => { (S.home[e.id] ||= {})[k] = rows; if(!S.cur) render(); }, onSubErr))));
+  up.forEach(e => (e === first ? ['people', 'payments', 'income', 'expenses', 'tasks'] : ['tasks']).forEach(k => homeUnsubs.push(Store.subscribe(`events/${e.id}/${k}`, rows => { (S.home[e.id] ||= {})[k] = rows; if(!S.cur) render(); }, onSubErr))));
 }
 function invite(e){
   const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), stock = E.stockOf(e), photo = E.hasPhoto(e);
@@ -216,11 +216,11 @@ function overviewView(ev){
         ${E.divider(170)}
         <ul class="meta">${meta}</ul>
         ${cd ? `<div class="countdown">${cd}</div>` : ''}
-        ${S.canWrite ? `<div class="hero-actions"><button class="btn text sm" data-act="edit-cover">${icon('style')}Change card</button><button class="btn text sm" data-act="edit-event">${icon('edit')}Edit details</button></div>` : ''}
+        ${S.canWrite ? `<div class="hero-actions">${st.contri ? `<button class="btn sm" data-act="collect">${icon('currency_rupee')}Record payment</button>` : ''}<button class="btn text sm" data-act="edit-cover">${icon('style')}Change card</button><button class="btn text sm" data-act="edit-event">${icon('edit')}Edit details</button></div>` : ''}
       </div>
     </section>`;
   const money = st.contri
-    ? sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Contri', `${inr(st.collected)} collected`, `${st.target ? `of ${inr(st.target)}` : 'set a per-person amount'}${st.pending ? ` · <span class="bad">${inr(st.pending)} still due</span>` : st.target ? ' · all paid' : ''}`, st.target ? E.lin(st.collected / st.target, 'thin' + (st.pending ? '' : ' good')) : '')
+    ? sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Contri', `${inr(st.collectedAll)} collected`, `${st.planTotal ? `of ${inr(st.planTotal)}` : 'set the plan in Money'}${st.planPeople ? ` · ${st.paidPeople} of ${st.planPeople} paid` : ''}${st.pending ? ` · <span class="bad">${inr(st.pending)} due</span>` : ''}`, st.planTotal ? E.lin(st.collectedAll / st.planTotal, 'thin' + (st.collectedAll >= st.planTotal ? ' good' : '')) : '')
     : sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Budget', `${inr(st.spent)} spent`, st.budget ? `of ${inr(st.budget)} planned` : `${S.expenses.length} expenses logged`, st.budget ? E.lin(st.spent / st.budget, 'thin' + (st.spent > st.budget ? ' bad' : '')) : '');
   const summary = `<section class="card stock sum"><p class="smallcaps menu-h">At a glance</p><div class="sum-list">
       ${sumRow('data-act="tab" data-tab="guests"', 'groups', 'Guests', `${st.headcount} coming`, total ? `${total} invited · ${st.rsvp.maybe} maybe · ${st.rsvp.invited} not replied` : 'No guests added yet', total ? `<span class="rsvp-bar thin">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</span>` : '')}
@@ -288,7 +288,7 @@ function guestsView(ev){
   const filters = [['all','All',total]].concat(st.contri ? [['due','Payment due',st.pendingCount],['paid','Paid',st.paidCount]] : [], rsvpF);
   const pct = k => total ? st.rsvp[k] / total * 100 : 0;
   const head = `<section class="vhead">${eyebrow(ev)}<div class="vhead-row"><h1 class="h1">Guest list</h1>
-      <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>` : ''}<button class="btn ghost" data-act="invite-msg">${icon('chat')}Invite</button>${total ? `<button class="icon-btn" data-act="export-guests" aria-label="Download guest list as a spreadsheet">${icon('download')}</button>` : ''}</div></div></section>
+      <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${st.contri ? `<button class="btn ghost" data-act="collect">${icon('currency_rupee')}Payment</button>` : ''}` : ''}<button class="btn ghost" data-act="invite-msg">${icon('chat')}Invite</button>${total ? `<button class="icon-btn" data-act="export-guests" aria-label="Download guest list as a spreadsheet">${icon('download')}</button>` : ''}</div></div></section>
     <div class="stat-row"><div><span>Invited</span><b>${total}</b><small>${st.rows.reduce((a, r) => a + r.plusOnes, 0)} plus-ones</small></div><div><span>Headcount</span><b class="good">${st.headcount}</b><small>coming incl. plus-ones</small></div><div><span>Maybe</span><b class="gold">${st.rsvp.maybe}</b><small>${st.rsvp.invited} not replied</small></div>
       ${st.contri ? `<button class="stat-btn" data-act="filter" data-f="due"><span>Contri</span><b class="${st.pending ? 'bad' : 'good'}">${st.paidCount}/${st.sharers.length}</b><small>${st.pending ? `${inr(st.pending)} still due` : 'all paid'}</small></button>` : `<div><span>Not coming</span><b>${st.rsvp.no}</b><small>declined</small></div>`}</div>
     ${total ? `<div class="card plain" style="gap:10px;padding:16px 18px"><div class="rsvp-bar">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</div><div class="rsvp-legend">${['going','maybe','invited','no'].map(k => `<span><i class="bg-${k}"></i>${RSVP[k][0]} ${st.rsvp[k]}</span>`).join('')}</div></div>` : ''}`;
@@ -408,6 +408,86 @@ function paySheet(pid){
     mount: b => bindPayForm(b, pid, () => closeSheet())});
 }
 
+/* record a payment from anyone: an existing guest, or a new name that joins the list as Coming.
+   Stays open so Ekta can enter one payment after another while collecting. */
+function collectSheet(){
+  const ev = E.curEv(); if(!ev || !S.canWrite) return;
+  const per = +ev.perHead || 0; let people = 1, mode = 'UPI', match = null, touched = false, total = 0;
+  const done = [];
+  const options = () => [...S.people].sort((a, b) => a.name.localeCompare(b.name)).map(p => `<option value="${esc(p.name)}">`).join('');
+  openSheet({id:'collect', title:'Record a payment', body:`
+    <label class="field"><span>Who paid?</span><input class="input" id="cs-name" list="cs-names" autocomplete="off" autocapitalize="words" placeholder="Type a name" data-autofocus><datalist id="cs-names">${options()}</datalist></label>
+    <p class="cs-who" id="cs-who">New names are added to the guest list as Coming.</p>
+    <div class="field"><span>Paying for</span><div class="seg" id="cs-ppl">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-n="${n}" aria-selected="${n === 1}">${n === 1 ? '1 person' : n}</button>`).join('')}</div></div>
+    <div class="grid2"><label class="field"><span>Amount</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="cs-amt" value="${per || ''}" placeholder="Amount"></div></label><label class="field"><span>Date</span><input class="input" type="date" id="cs-date" value="${E.today()}"></label></div>
+    <div class="seg" id="cs-mode">${['UPI', 'Cash', 'Bank', 'Card'].map(m => `<button type="button" data-m="${m}" aria-selected="${m === mode}">${m}</button>`).join('')}</div>
+    <label class="field"><span>Reference <em class="opt-l">optional</em></span><input class="input" id="cs-ref" maxlength="60" placeholder="UPI ref no. or a note" autocomplete="off"></label>
+    <button class="btn cs-go" type="button" id="cs-go">${icon('currency_rupee')}Record payment</button>
+    <div class="cs-done" id="cs-done" aria-live="polite"></div>`,
+  mount: b => {
+    const name = $('#cs-name', b), amt = $('#cs-amt', b), who = $('#cs-who', b);
+    const setPeople = n => { people = n; $$('#cs-ppl button', b).forEach(x => x.setAttribute('aria-selected', +x.dataset.n === n)); };
+    const autoAmount = () => { if(touched) return; const owed = per * people - (match ? match.contributed : 0); amt.value = per ? Math.max(0, owed) || '' : amt.value; };
+    const lookup = () => {
+      const q = name.value.trim().toLowerCase();
+      const p = q ? S.people.find(x => x.name.trim().toLowerCase() === q) : null;
+      match = p ? rowOf(p.id) : null;
+      if(match){ setPeople(Math.min(5, match.people)); who.innerHTML = `${icon('check_circle', false, 'xs')} On the list · ${match.expected ? (match.due ? `${inr(match.due)} still due` : 'already paid in full') : 'no share yet'}${match.people > 1 ? ` · ${match.people} people` : ''}`; who.className = 'cs-who known'; }
+      else { who.textContent = q ? `New guest: ${name.value.trim()} will join the list as Coming.` : 'New names are added to the guest list as Coming.'; who.className = 'cs-who'; }
+      autoAmount();
+    };
+    name.addEventListener('input', lookup);
+    amt.addEventListener('input', () => { touched = true; });
+    $('#cs-ppl', b).addEventListener('click', e => { const c = e.target.closest('[data-n]'); if(!c) return; setPeople(+c.dataset.n); touched = false; autoAmount(); });
+    $('#cs-mode', b).addEventListener('click', e => { const c = e.target.closest('[data-m]'); if(!c) return; mode = c.dataset.m; $$('#cs-mode button', b).forEach(x => x.setAttribute('aria-selected', x.dataset.m === mode)); });
+    name.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); amt.focus(); amt.select(); } });
+    amt.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('#cs-go', b).click(); } });
+    $('#cs-go', b).addEventListener('click', async () => {
+      const who_ = name.value.trim().replace(/\s+/g, ' '), amount = num(amt.value);
+      if(!who_){ toast('Type who paid.', 'info'); name.focus(); return; }
+      if(!amount){ toast('Enter the amount received.', 'info'); amt.focus(); return; }
+      const btn = $('#cs-go', b); btn.disabled = true;
+      let pid = match && match.id;
+      if(!pid){
+        pid = 'p' + uid();
+        if(!(await save(Store.set(E.evPath('people', pid), {name:who_.slice(0, 60), phone:'', expected:null, rsvp:'going', plusOnes:people - 1, group:'', diet:'', tableId:'', note:'', createdAt:Date.now()})))){ btn.disabled = false; return; }
+      } else {
+        const patch = {}; if(match.people !== people) patch.plusOnes = people - 1; if(match.rsvp !== 'going') patch.rsvp = 'going';
+        if(Object.keys(patch).length) await save(Store.update(E.evPath('people', pid), patch));
+      }
+      const ok = await save(Store.set(E.evPath('payments', 'r' + uid()), {guestId:pid, amount, mode, date:val(b, '#cs-date') || E.today(), ref:val(b, '#cs-ref'), createdAt:Date.now()}));
+      btn.disabled = false; if(!ok) return;
+      E.vibrate([12, 40, 18]); E.celebrate(btn, true);
+      total += amount; done.unshift(`<li><b>${esc(who_)}</b><span>${inr(amount)}${people > 1 ? ` · ${people} people` : ''} · ${mode}</span></li>`);
+      $('#cs-done', b).innerHTML = `<p class="smallcaps">Recorded just now · ${inr(total)} from ${done.length} ${done.length === 1 ? 'person' : 'people'}</p><ul>${done.slice(0, 6).join('')}</ul>`;
+      toast(`${inr(amount)} from ${first(who_)} recorded`, 'payments');
+      name.value = ''; $('#cs-ref', b).value = ''; touched = false; match = null; setPeople(1); amt.value = per || ''; lookup();
+      setTimeout(() => { const dl = $('#cs-names', b); if(dl) dl.innerHTML = options(); }, 300);
+      name.focus();
+    });
+  }});
+}
+/* money that comes in without a share: family, a sponsor, a gift towards the party */
+function incomeSheet(x){
+  const ev = E.curEv(); if(!ev || !S.canWrite) return;
+  let mode = x?.mode || 'UPI';
+  openSheet({id:'income', title: x ? 'Family money' : 'Money from family', body:`<p class="muted">Money that goes into the pot without a share, like a gift from family. It lowers what friends split at the end.</p>
+    <label class="field"><span>From</span><input class="input" id="in-from" maxlength="60" placeholder="Mama ji, Nani, a sponsor…" value="${esc(x?.from || '')}" ${x ? '' : 'data-autofocus'}></label>
+    <div class="grid2"><label class="field"><span>Amount</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="in-amt" value="${x?.amount || ''}"></div></label><label class="field"><span>Date</span><input class="input" type="date" id="in-date" value="${esc(x?.date || E.today())}"></label></div>
+    <div class="seg" id="in-mode">${['UPI', 'Cash', 'Bank', 'Card'].map(m => `<button type="button" data-m="${m}" aria-selected="${m === mode}">${m}</button>`).join('')}</div>
+    <label class="field"><span>Note <em class="opt-l">optional</em></span><input class="input" id="in-note" maxlength="80" value="${esc(x?.note || '')}" placeholder="For the fireworks, a gift…"></label>
+    <div class="sheet-foot">${x ? `<button class="btn danger-text" type="button" id="in-del">${icon('delete')}Remove</button><span class="grow"></span>` : ''}<button class="btn" type="button" id="in-save">${x ? 'Save' : 'Add to the pot'}</button></div>`,
+  mount: b => {
+    $('#in-mode', b).addEventListener('click', e => { const c = e.target.closest('[data-m]'); if(!c) return; mode = c.dataset.m; $$('#in-mode button', b).forEach(y => y.setAttribute('aria-selected', y.dataset.m === mode)); });
+    $('#in-save', b).addEventListener('click', async () => {
+      const from = val(b, '#in-from'), amount = num(val(b, '#in-amt'));
+      if(!from){ toast('Add who it’s from.', 'info'); return; } if(!amount){ toast('Enter the amount.', 'info'); return; }
+      const btn = $('#in-save', b);
+      if(await save(Store.set(E.evPath('income', x ? x.id : 'i' + uid()), {from, amount, mode, date:val(b, '#in-date') || E.today(), note:val(b, '#in-note'), createdAt:x?.createdAt || Date.now()}))){ if(!x) E.celebrate(btn, true); closeSheet(); toast(x ? 'Updated' : `${inr(amount)} from ${from} added to the pot`, 'family_restroom'); }
+    });
+    if(x) $('#in-del', b).addEventListener('click', async () => { if(await save(Store.remove(E.evPath('income', x.id)))){ closeSheet(); toast('Removed', 'delete'); } });
+  }});
+}
 function guestSheet(pid){
   const ev = E.curEv(); if(!ev) return;
   const raw = () => S.people.find(x => x.id === pid);
@@ -531,32 +611,47 @@ function upiSheet(ev, amount, who){
 
 /* ---------- budget ---------- */
 function budgetView(ev){
-  const st = E.stats(ev, S.people, S.expenses), hasContri = st.contri && st.sharers.length > 0;
-  if(!st.contri && S.sub.budget === 'collect') S.sub.budget = 'expenses';
-  const p = hasContri ? (st.target ? st.collected / st.target : 0) : (st.budget ? st.spent / st.budget : 0);
+  const st = E.stats(ev, S.people, S.expenses), c = st.contri;
+  if(!c && S.sub.budget === 'collect') S.sub.budget = 'expenses';
+  const goal = st.planTotal, p = c ? (goal ? st.collectedAll / goal : 0) : (st.budget ? st.spent / st.budget : 0);
   const head = `<section class="vhead">${eyebrow(ev)}<div class="vhead-row"><h1 class="h1">Money</h1>
-      <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-expense">${icon('add')}Expense</button><button class="btn ghost" data-act="edit-money">${icon('tune')}${st.contri ? (+ev.perHead ? `${inr(ev.perHead)} / person` : 'Contri settings') : 'Budget'}</button>` : ''}</div></div></section>
-    <section class="money-hero plain foil">
-      <span class="eyebrow">${hasContri ? 'Contri collected' : 'Spent so far'}</span>
-      <div class="money-big"><b>${inr(hasContri ? st.collected : st.spent)}</b><span>${hasContri ? (st.target ? `of ${inr(st.target)} target` : 'set a per-person amount to see the target') : (st.budget ? `of ${inr(st.budget)} budget` : 'no budget set yet')}</span></div>
-      ${E.lin(p, p >= 1 && hasContri ? 'good' : (!hasContri && p > 1 ? 'bad' : ''))}
-      ${hasContri && st.directIn ? `<p class="split-line"><span><i class="dot pot"></i>${inr(st.potIn)} received into the pot</span><span><i class="dot direct"></i>${inr(st.directIn)} paid directly by friends</span></p>` : ''}
-      <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">${hasContri
-        ? `<div><span>Spent</span><b>${inr(st.spent)}</b><small>${st.budget ? `of ${inr(st.budget)}` : `${S.expenses.length} expenses`}</small></div><div><span>In the pot</span><b class="${st.inHand < 0 ? 'bad' : ''}">${inr(st.inHand)}</b><small>${st.inHand < 0 ? 'overspent' : 'cash in hand'}</small></div><button class="stat-btn" data-act="show-due"><span>Still due ${icon('chevron_right', false, 'xs')}</span><b class="${st.pending > 0 ? 'bad' : 'good'}">${inr(st.pending)}</b><small>${st.pendingCount ? `${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} · see who` : 'all settled'}</small></button>`
+      <div class="chips${c && S.canWrite ? ' money-acts' : ''}">${S.canWrite ? (c ? `<button class="btn" data-act="collect">${icon('currency_rupee')}Record payment</button><button class="btn ghost" data-act="add-income">${icon('family_restroom')}Family money</button><button class="btn ghost" data-act="add-expense">${icon('add')}Expense</button>` : `<button class="btn" data-act="add-expense">${icon('add')}Expense</button>`) + `<button class="icon-btn" data-act="edit-money" aria-label="Money settings">${icon('tune')}</button>` : ''}</div></div></section>`;
+  const planLine = c ? (st.planPeople && +ev.perHead
+      ? `<p class="plan-line">${icon('flag', false, 'xs')}<span>Plan: ${st.planPeople} people × ${inr(ev.perHead)}${st.otherTarget ? ` + ${inr(st.otherTarget)} from family` : ''} = <b>${inr(goal)}</b>${+ev.budget ? ` · budget ${inr(ev.budget)} · ${goal >= +ev.budget ? `${inr(goal - ev.budget)} cushion` : `<b class="bad">${inr(ev.budget - goal)} short</b>`}` : ''}</span></p>`
+      : S.canWrite ? `<button class="plan-line set" data-act="edit-money">${icon('flag', false, 'xs')}<span>Set the plan: per-person amount, how many people, money from family</span></button>` : '') : '';
+  const hero = `<section class="money-hero plain foil">
+      <span class="eyebrow">${c ? 'Collected so far' : 'Spent so far'}</span>
+      <div class="money-big"><b>${inr(c ? st.collectedAll : st.spent)}</b><span>${c ? (goal ? `of ${inr(goal)}` : 'set the plan to see the goal') : (st.budget ? `of ${inr(st.budget)} budget` : 'no budget set yet')}</span></div>
+      ${E.lin(p, p >= 1 && c ? 'good' : (!c && p > 1 ? 'bad' : ''))}
+      ${c ? `<p class="split-line"><span><i class="dot pot"></i>${inr(st.collected)} from friends · ${st.paidPeople}${st.planPeople ? ` of ${st.planPeople}` : ''} ${st.paidPeople === 1 ? 'person' : 'people'} paid</span>${st.otherIn || st.otherTarget ? `<span><i class="dot fam"></i>${inr(st.otherIn)} from family${st.otherTarget ? ` of ${inr(st.otherTarget)}` : ''}</span>` : ''}${st.toJoin ? `<span><i class="dot direct"></i>${st.toJoin} more ${st.toJoin === 1 ? 'person' : 'people'} expected</span>` : ''}</p>` : ''}
+      <div class="stat-row" style="grid-template-columns:repeat(3,minmax(0,1fr))">${c
+        ? `<div><span>Spent</span><b>${inr(st.spent)}</b><small>${+ev.budget ? `of ${inr(ev.budget)}` : `${S.expenses.length} expenses`}</small></div><div><span>In the pot</span><b class="${st.inHand < 0 ? 'bad' : ''}">${inr(st.inHand)}</b><small>${st.inHand < 0 ? 'overspent' : 'cash in hand'}</small></div><button class="stat-btn" data-act="show-due"><span>Still due ${icon('chevron_right', false, 'xs')}</span><b class="${st.pending > 0 ? 'bad' : 'good'}">${inr(st.pending)}</b><small>${st.pendingCount ? `${st.pendingCount} on the list` : 'nothing owed'}</small></button>`
         : `<div><span>Budget</span><b>${st.budget ? inr(st.budget) : '—'}</b><small>planned</small></div><div><span>Left</span><b class="${st.budget && st.budget - st.spent < 0 ? 'bad' : ''}">${st.budget ? inr(st.budget - st.spent) : '—'}</b><small>to spend</small></div><div><span>Expenses</span><b>${S.expenses.length}</b><small>logged</small></div>`}</div>
-      ${hasContri ? `<div class="chips"><button class="btn tonal sm" data-act="group-msg">${icon('chat')}Group update</button>${ev.upi ? `<button class="btn tonal sm" data-act="upi-qr">${icon('qr_code_2')}UPI QR</button>` : ''}</div>` : ''}
+      ${planLine}
+      ${c ? `<div class="chips"><button class="btn tonal sm" data-act="group-msg">${icon('chat')}Group update</button>${ev.upi ? `<button class="btn tonal sm" data-act="upi-qr">${icon('qr_code_2')}UPI QR</button>` : ''}</div>` : ''}
     </section>`;
-  const subs = st.contri ? BUDGET_SUB : BUDGET_SUB.filter(s => s[0] !== 'collect');
+  const subs = c ? BUDGET_SUB : BUDGET_SUB.filter(x => x[0] !== 'collect');
   const body = S.sub.budget === 'settle' ? settleBlock(ev, st) : S.sub.budget === 'collect' ? collectBlock(ev, st) : expensesBlock(ev, st);
-  return head + segBar('budget', subs) + body;
+  return head + hero + segBar('budget', subs) + body;
 }
+const nameOf = id => S.people.find(p => p.id === id)?.name || 'Removed guest';
 function collectBlock(ev, st){
-  if(!st.sharers.length) return `<section class="empty plain"><span class="empty-ic">${icon('payments')}</span><h3>No one is chipping in yet</h3><p>${+ev.perHead ? 'Add guests and each person gets the per-person share.' : 'Set a per-person amount, then everyone on the guest list gets a share to pay.'}</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="tab" data-tab="guests">${icon('groups')}Go to guests</button><button class="btn ghost" data-act="edit-money">${icon('tune')}Contri settings</button></div>` : ''}</section>`;
+  const receipts = S.payments.filter(x => S.people.some(p => p.id === x.guestId)).map(x => ({...x, kind:'pay'})).concat(S.income.map(x => ({...x, kind:'fam'})))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+  if(!st.sharers.length && !receipts.length) return `<section class="empty plain"><span class="empty-ic">${icon('payments')}</span><h3>Start collecting</h3><p>Tap <b>Record payment</b> as each person pays. Type their name; new names join the guest list as Coming. Family money goes in separately.</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="collect">${icon('currency_rupee')}Record the first payment</button><button class="btn ghost" data-act="add-income">${icon('family_restroom')}Family money</button></div>` : ''}</section>`;
+  const today = E.today(), todays = receipts.filter(x => x.date === today), tSum = todays.reduce((a, x) => a + (+x.amount || 0), 0);
+  const shown = S.allRecent ? receipts : receipts.slice(0, 6);
+  const rec = x => x.kind === 'fam'
+    ? `<button class="row" data-act="income" data-id="${esc(x.id)}"><span class="row-ic">${icon('family_restroom')}</span><span class="row-main"><b>${esc(x.from)}</b><span class="row-sub">Family money · ${esc([x.mode, E.fmtShort(x.date), x.note].filter(Boolean).join(' · '))}</span></span><span class="row-amt">${inr(x.amount)}</span></button>`
+    : `<button class="row" data-act="guest" data-id="${esc(x.guestId)}"><span class="av">${esc(E.initials(nameOf(x.guestId)))}</span><span class="row-main"><b>${esc(nameOf(x.guestId))}</b><span class="row-sub">${esc([x.mode, E.fmtShort(x.date), x.ref].filter(Boolean).join(' · '))}</span></span><span class="row-amt">${inr(x.amount)}</span></button>`;
   const q = (S.cq || '').trim().toLowerCase();
   const rows = [...st.sharers].filter(r => !q || r.name.toLowerCase().includes(q)).sort((a, b) => b.due - a.due || a.name.localeCompare(b.name));
-  return `<label class="search">${icon('search')}<input class="input" id="c-search" type="search" placeholder="Find someone" value="${esc(S.cq || '')}" aria-label="Search contributions"></label>
+  return `${receipts.length ? `<section class="list-card plain"><div class="lc-head"><div><b>Payments received</b><br><span>${todays.length ? `Today: ${inr(tSum)} from ${todays.length} ${todays.length === 1 ? 'payment' : 'payments'}` : `${receipts.length} so far · latest first`}</span></div>${S.canWrite ? `<button class="btn tonal sm" data-act="collect">${icon('add')}Record</button>` : ''}</div>
+      ${shown.map(rec).join('')}
+      ${receipts.length > 6 ? `<div class="lc-foot"><button class="btn text sm" data-act="toggle-recent">${S.allRecent ? 'Show fewer' : `Show all ${receipts.length}`}</button></div>` : ''}</section>` : ''}
+    ${st.sharers.length ? `<label class="search">${icon('search')}<input class="input" id="c-search" type="search" placeholder="Find someone" value="${esc(S.cq || '')}" aria-label="Search contributions"></label>
     <section class="list-card plain"><div class="lc-head"><div><b>${st.paidCount} of ${st.sharers.length} paid in full</b><br><span>Tap ${icon('currency_rupee', false, 'xs')} to record a payment, or a name for details</span></div>${S.canWrite ? `<button class="icon-btn" data-act="export-guests" aria-label="Download contributions as a spreadsheet">${icon('download')}</button>` : ''}</div>
-    ${rows.length ? rows.map(r => guestRow(r, st, null).replace('<span class="row-sub">null</span>', `<span class="row-sub">${inr(r.contributed)}${r.expected ? ` of ${inr(r.expected)}` : ''}${r.people > 1 ? ` · ${r.people} people` : ''}${r.direct ? ` · ${inr(r.direct)} paid directly` : ''}</span>${r.expected ? E.lin(r.contributed / r.expected, 'thin' + (r.status === 'paid' ? ' good' : '')) : ''}`)).join('') : `<div class="row" style="cursor:default"><span class="row-main"><span class="row-sub">No one matches.</span></span></div>`}</section>`;
+    ${rows.length ? rows.map(r => guestRow(r, st, null).replace('<span class="row-sub">null</span>', `<span class="row-sub">${inr(r.contributed)}${r.expected ? ` of ${inr(r.expected)}` : ''}${r.people > 1 ? ` · ${r.people} people` : ''}${r.direct ? ` · ${inr(r.direct)} paid directly` : ''}</span>${r.expected ? E.lin(r.contributed / r.expected, 'thin' + (r.status === 'paid' ? ' good' : '')) : ''}`)).join('') : `<div class="row" style="cursor:default"><span class="row-main"><span class="row-sub">No one matches.</span></span></div>`}</section>` : ''}`;
 }
 const catName = (ev, id) => (ev.categories || []).find(c => c.id === id)?.name || 'Other';
 const payerName = id => { const p = S.people.find(x => x.id === id); return p ? `Paid by ${p.name}` : 'From the pot'; };
@@ -577,35 +672,42 @@ function settleBlock(ev, st){
   if(!st.sharers.length) return `<section class="empty plain"><span class="empty-ic">${icon('groups')}</span><h3>Nobody to split with yet</h3><p>Add guests with a contri share first.</p></section>`;
   if(!st.spent) return `<section class="empty plain"><span class="empty-ic">${icon('balance')}</span><h3>Nothing spent yet</h3><p>Once expenses are in, this splits the actual spend by each person’s share (plus-ones included) and shows who gets money back and who still owes.</p></section>`;
   const rows = [...st.sharers].sort((a, b) => a.bal - b.bal);
+  const fam = st.otherIn ? `<p class="settle-note">${inr(st.spent)} spent − ${inr(st.otherIn)} from family = <b>${inr(st.net)}</b> for friends to share${st.surplus ? ` · ${inr(st.surplus)} left over` : ''}</p>` : '';
   const eq = st.uniform
-    ? `<div><b>${inr(st.spent)}</b><span>spent</span></div><span class="op">÷</span><div><b>${st.splitPeople}</b><span>people</span></div><span class="op">=</span><div><b>${inr(st.perPerson)}</b><span>per person</span></div>`
+    ? `<div><b>${inr(st.net)}</b><span>${st.otherIn ? 'to share' : 'spent'}</span></div><span class="op">÷</span><div><b>${st.splitPeople}</b><span>people</span></div><span class="op">=</span><div><b>${inr(st.perPerson)}</b><span>per person</span></div>`
     : `<div><b>${inr(st.spent)}</b><span>spent</span></div><span class="op">→</span><div><b>${st.splitPeople}</b><span>people</span></div><span class="op">·</span><div><b>By share</b><span>custom shares count</span></div>`;
-  return `<section class="plain settle-eq">${eq}</section>
+  return `<section class="plain settle-eq">${eq}</section>${fam}
     <section class="list-card plain"><div class="lc-head"><div><b>Final split</b><br><span>Each person’s part of the actual spend, minus what they put in</span></div></div>
       ${rows.map(r => `<div class="row" style="cursor:default"><span class="av ${E.avc(r.name)}">${esc(E.initials(r.name))}</span><span class="row-main"><b>${esc(r.name)}</b><span class="row-sub">${r.weight ? `Share ${inr(r.fair)}${r.people > 1 ? ` · ${r.people} people` : ''}` : 'Share waived'} · put in ${inr(r.contributed)}</span></span>${Math.abs(r.bal) < 1 ? `<span class="tag">Settled</span>` : r.bal > 0 ? `<span class="tag good">Gets back ${inr(r.bal)}</span>` : `<span class="tag bad">Owes ${inr(-r.bal)}</span>`}</div>`).join('')}
       <div class="lc-foot"><span class="muted">In the pot: <b class="num" style="color:var(--ink)">${inr(st.inHand)}</b></span><button class="btn tonal sm" data-act="settle-msg">${icon('ios_share')}Share split</button></div></section>`;
 }
 function groupText(ev, st){
   const mark = ev.type === 'diwali' ? '🪔' : '✨', pend = st.sharers.filter(r => r.due > 0);
-  return [`${mark} ${ev.name} · contri update`, ev.date ? E.fmtLong(ev.date) : '', '', `${+ev.perHead ? `Per person: ${inr(ev.perHead)} · ` : ''}${st.sharers.reduce((a, r) => a + (r.expected > 0 ? r.people : 0), 0)} people`, `Collected: ${inr(st.collected)}${st.target ? ` of ${inr(st.target)}` : ''}`,
+  return [`${mark} ${ev.name} · contri update`, ev.date ? E.fmtLong(ev.date) : '', '', `${+ev.perHead ? `Per person: ${inr(ev.perHead)} · ` : ''}${st.sharers.reduce((a, r) => a + (r.expected > 0 ? r.people : 0), 0)} people`, `Collected: ${inr(st.collectedAll)}${st.planTotal ? ` of ${inr(st.planTotal)}` : ''}${st.otherIn ? ` (incl. ${inr(st.otherIn)} from family)` : ''}`, st.planPeople ? `${st.paidPeople} of ${st.planPeople} people have paid` : '',
     pend.length ? `\nStill pending:\n${pend.map(r => `• ${r.name}${r.people > 1 ? ` (${r.people})` : ''}: ${inr(r.due)}`).join('\n')}` : '\nEveryone has paid. Thank you all!', ev.upi ? `\nPay to UPI: ${ev.upi}` : ''].filter((l, i) => l !== '' || i === 2).join('\n').replace(/\n{3,}/g, '\n\n');
 }
 function settleText(ev, st){
   const back = st.sharers.filter(r => r.bal >= 1), owe = st.sharers.filter(r => r.bal <= -1);
-  return [`${ev.name} · final split`, st.uniform ? `Total spent ${inr(st.spent)} ÷ ${st.splitPeople} people = ${inr(st.perPerson)} per person` : `Total spent ${inr(st.spent)}, split by each person’s share`, '', owe.length ? `To pay:\n${owe.map(r => `• ${r.name}: ${inr(-r.bal)}`).join('\n')}` : 'Nobody owes anything.', back.length ? `\nGets back:\n${back.map(r => `• ${r.name}: ${inr(r.bal)}`).join('\n')}` : '', ev.upi && owe.length ? `\nUPI: ${ev.upi}` : ''].filter(Boolean).join('\n');
+  return [`${ev.name} · final split`, (st.otherIn ? `Spent ${inr(st.spent)} − ${inr(st.otherIn)} from family = ${inr(st.net)} to share\n` : '') + (st.uniform ? `${inr(st.net)} ÷ ${st.splitPeople} people = ${inr(st.perPerson)} per person` : `${inr(st.net)}, split by each person’s share`), '', owe.length ? `To pay:\n${owe.map(r => `• ${r.name}: ${inr(-r.bal)}`).join('\n')}` : 'Nobody owes anything.', back.length ? `\nGets back:\n${back.map(r => `• ${r.name}: ${inr(r.bal)}`).join('\n')}` : '', ev.upi && owe.length ? `\nUPI: ${ev.upi}` : ''].filter(Boolean).join('\n');
 }
 function moneySheet(ev){
   let contri = E.contriOn(ev);
-  openSheet({title:'Budget settings', body:`
+  openSheet({title:'Money settings', body:`
     <div class="toggle"><div><b>Guests chip in (contri)</b><div class="hint-s">For friends’ parties where everyone shares the cost.</div></div><button class="switch" type="button" role="switch" id="m-contri" aria-checked="${contri}" aria-label="Guests chip in"></button></div>
     <div id="m-cfields" ${contri ? '' : 'hidden'} style="display:flex;flex-direction:column;gap:16px">
       <label class="field"><span>Contri per person</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-per" value="${ev.perHead || ''}" placeholder="e.g. 2000"></div></label>
+      <div class="grid2"><label class="field"><span>People chipping in</span><input class="input" type="number" inputmode="numeric" min="0" id="m-ppl" value="${ev.contriPeople || ''}" placeholder="e.g. 30"></label>
+        <label class="field"><span>From family or others</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-other" value="${ev.otherTarget || ''}" placeholder="e.g. 10000"></div></label></div>
+      <p class="hint" id="m-plan"></p>
       <label class="field"><span>UPI ID for payments</span><input class="input" id="m-upi" maxlength="80" autocapitalize="off" spellcheck="false" placeholder="name@okaxis" value="${esc(ev.upi || '')}"></label></div>
     <label class="field"><span>Total budget</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-budget" value="${ev.budget || ''}" placeholder="Optional"></div></label>
     <div class="sheet-foot"><button class="btn" type="button" id="m-save">Save</button></div>`,
   mount: b => {
     $('#m-contri', b).addEventListener('click', e => { contri = !contri; e.currentTarget.setAttribute('aria-checked', contri); $('#m-cfields', b).hidden = !contri; });
-    $('#m-save', b).addEventListener('click', async () => { if(await save(Store.update(`events/${ev.id}`, {contri, perHead:num(val(b, '#m-per')), upi:val(b, '#m-upi'), budget:num(val(b, '#m-budget'))}))){ closeSheet(); toast('Budget settings saved'); } });
+    const plan = () => { const per = num(val(b, '#m-per')), ppl = num(val(b, '#m-ppl')), other = num(val(b, '#m-other')), bud = num(val(b, '#m-budget')), total = per * ppl + other;
+      $('#m-plan', b).innerHTML = per && ppl ? `${icon('payments')}<span>Plan: ${ppl} people × ${inr(per)}${other ? ` + ${inr(other)} from family` : ''} = <b>${inr(total)}</b>${bud ? ` · budget ${inr(bud)} · ${total >= bud ? `${inr(total - bud)} cushion` : `<b class="bad">${inr(bud - total)} short</b>`}` : ''}</span>` : `${icon('info')}<span>Add the per-person amount and how many people are chipping in to track the plan.</span>`; };
+    b.addEventListener('input', plan); plan();
+    $('#m-save', b).addEventListener('click', async () => { if(await save(Store.update(`events/${ev.id}`, {contri, perHead:num(val(b, '#m-per')), contriPeople:num(val(b, '#m-ppl')), otherTarget:num(val(b, '#m-other')), upi:val(b, '#m-upi'), budget:num(val(b, '#m-budget'))}))){ closeSheet(); toast('Money settings saved'); } });
   }});
 }
 function expenseSheet(ev, x){
@@ -1021,6 +1123,13 @@ document.addEventListener('click', e => {
     case 'done-toggle': S.doneOpen = !S.doneOpen; E.render(); break;
     case 'settings': settingsSheet(); break;
     case 'quick-pay': paySheet(id); break;
+    case 'collect': if(ev && S.canWrite) collectSheet(); break;
+    case 'add-income': if(ev && S.canWrite) incomeSheet(); break;
+    case 'income': { const x = S.income.find(y => y.id === id); if(x && S.canWrite) incomeSheet(x); break; }
+    case 'toggle-recent': S.allRecent = !S.allRecent; E.render(); break;
+    case 'quick-collect': S.sub.budget = 'collect'; openEvent(id, 'budget'); setTimeout(() => { if(E.curEv()) collectSheet(); }, 250); break;
+    case 'quick-guests': openEvent(id, 'guests'); setTimeout(() => { const e2 = E.curEv(); if(e2) addGuestsSheet(e2); }, 250); break;
+    case 'quick-money': S.sub.budget = 'collect'; openEvent(id, 'budget'); break;
     case 'show-due': S.tab = 'guests'; S.filter = 'due'; saveNav(); E.render(); window.scrollTo(0, 0); break;
     case 'filter-go': S.tab = 'guests'; S.filter = t.dataset.f; S.query = ''; saveNav(); E.render(); window.scrollTo(0, 0); break;
     case 'export-guests': if(ev) exportGuests(ev); break;

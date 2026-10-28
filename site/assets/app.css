@@ -1027,3 +1027,30 @@ body:not(.in-event) main .wrap{max-width:1280px}
   .feat-stats b{font-size:21px}
 }
 .w-hours .wx{margin:-2px 0}
+
+/* ---------- collecting: payment-first sheet, family money, the plan ---------- */
+.dot.fam{background:var(--accent)}
+.plan-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 0;padding:9px 12px;border-radius:12px;background:var(--accent-soft);color:var(--ink-2);font-size:13px;line-height:1.45;text-align:left;border:0;width:100%;font-family:inherit}
+.plan-line b{color:var(--ink)}
+.plan-line.set{cursor:pointer;color:var(--accent-text);font-weight:600}
+.plan-line.set:hover{filter:brightness(.97)}
+.cs-who{margin:-4px 0 2px;font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:6px;min-height:20px}
+.cs-who.known{color:var(--good, #2e7d4f)}
+.cs-go{width:100%;justify-content:center;min-height:50px;font-size:16px;margin-top:4px}
+.cs-done:empty{display:none}
+.cs-done{margin-top:6px;padding:12px 14px;border-radius:14px;background:var(--accent-soft)}
+.cs-done .smallcaps{margin:0 0 6px}
+.cs-done ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.cs-done li{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.cs-done li span{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.settle-note{margin:-4px 0 10px;text-align:center;font-size:13px;color:var(--ink-2)}
+.h-quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.h-quick .btn:first-child{flex:1 1 auto;justify-content:center}
+@media (max-width:559px){ .h-quick .btn{flex:1 1 auto;justify-content:center} .vhead-row .chips .btn.ghost{padding-inline:12px} }
+.plan-line{flex-wrap:nowrap;align-items:flex-start}
+.plan-line > svg{flex:none;margin-top:2px}
+@media (max-width:559px){
+  .chips.money-acts{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;width:100%}
+  .chips.money-acts > :first-child{grid-column:1 / -1;justify-content:center;min-height:48px}
+  .chips.money-acts .btn.ghost{justify-content:center}
+}
