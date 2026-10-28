@@ -20,20 +20,22 @@ function qrCard(ev, id){
   return `<div class="qr-card"><span class="qe">Photo wall</span><h3>${esc(ev.name)}</h3><div class="qr">${E.qrSvg(guestUrl(id))}</div><p>Scan to add your photos</p>${ev.date ? `<span class="qe" style="color:#6e6156">${esc(E.fmtLong(ev.date))}</span>` : ''}${pal.length ? `<div class="strip">${pal.map(h => `<i style="--c:${h}"></i>`).join('')}</div>` : ''}</div>`;
 }
 function view(ev){
-  const head = `<section class="vhead"><p class="eyebrow gold">Photos</p><div class="vhead-row"><h1 class="h1">Every guest’s <em>photos</em></h1></div></section>`;
+  const head = `<section class="vhead"><p class="eyebrow gold">${esc(ev.name)}</p><div class="vhead-row"><h1 class="h1">Photo wall</h1></div></section>`;
+  const signedOut = E.Store.mode === 'local' && P.needSignIn;
   if(!E.onNetlify()) return head + `<section class="empty glass"><span class="empty-ic">${icon('qr_code_2')}</span><h3>Open Ekaya on its website</h3><p>The QR photo wall needs the Netlify site, where guests can upload without an account.</p></section>`;
   if(!ev.gallery) return head + `<section class="wall-hero glass foil"><div style="display:flex;flex-direction:column;gap:16px">
       <p class="sub" style="font-size:17px">Put one QR code on the tables. Guests scan it, add their photos from the party, and everyone can see and download the whole gallery. No app, no login.</p>
       <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--ink-2)"><li>Create the wall and print the QR card</li><li>Guests scan and upload from their phones</li><li>Everyone browses and saves the photos</li></ol>
-      ${S.canWrite ? `<div><button class="btn gold" data-act="wall-create">${icon('qr_code_2')}Create photo wall</button></div>` : ''}</div>
-      <div class="qr-card" style="opacity:.9"><span class="qe">Photo wall</span><h3>${esc(ev.name)}</h3><div class="qr ph">${icon('qr_code_2', false, 'lg')}</div><p>Scan to add your photos</p></div></section>`;
+      ${signedOut ? `<p class="hint">${icon('lock')}<span>Sign in to your Ekaya workspace to create a shareable photo wall. You can preview the card here.</span></p><div><button class="btn gold" data-act="turn-on-sync">${icon('login')}Sign in</button></div>`
+        : S.canWrite ? `<div><button class="btn gold" data-act="wall-create">${icon('qr_code_2')}Create photo wall</button></div>` : ''}</div>
+      <div class="qr-card preview" style="opacity:.9"><span class="pv-tag">Preview</span><span class="qe">Photo wall</span><h3>${esc(ev.name)}</h3><div class="qr ph">${icon('qr_code_2', false, 'lg')}</div><p>Scan to add your photos</p></div></section>`;
   const id = ev.gallery.id, d = P.id === id ? P.data : null, url = guestUrl(id);
   if(P.id === id && P.err === 'missing') return head + `<section class="empty glass"><span class="empty-ic">${icon('error')}</span><h3>This photo wall was removed</h3><p>Create a new one to get a fresh QR code.</p>${S.canWrite ? `<button class="btn" data-act="wall-create">${icon('qr_code_2')}Create a new wall</button>` : ''}</section>`;
   const open = d ? d.open : true, photos = d ? d.photos : [];
   return head + `<section class="wall-hero glass foil"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       <div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><span>Photos</span><b class="gold">${d ? d.count : '…'}</b><small>${d && d.count ? `latest ${timeAgo(photos[0].t)}` : 'none yet'}</small></div><div><span>Uploads</span><b class="${open ? 'good' : 'bad'}">${open ? 'Open' : 'Closed'}</b><small>${open ? 'guests can add' : 'browse only'}</small></div></div>
       <div class="link-box"><code>${esc(url.replace(/^https?:\/\//, ''))}</code><button class="icon-btn" data-act="wall-copy" aria-label="Copy link">${icon('content_copy')}</button></div>
-      <div class="chips"><button class="btn" data-act="wall-card">${icon('download')}QR card</button><button class="btn ghost" data-act="wall-share">${icon('ios_share')}Share link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">${icon('open_in_new')}Guest view</a></div>
+      <div class="chips"><button class="btn gold" data-act="wall-card">${icon('download')}Download QR card</button><button class="btn ghost" data-act="wall-share">${icon('ios_share')}Share link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">${icon('open_in_new')}Guest view</a></div>
       ${S.canWrite && ev.gallery.key ? `<div class="toggle" style="border-top:1px solid var(--line);padding-top:14px"><div><b>Guests can upload</b><div class="hint-s">Turn off after the event to keep the gallery as it is.</div></div><button class="switch" role="switch" data-act="wall-toggle" aria-checked="${open}" aria-label="Guests can upload"></button></div>` : ''}
     </div>${qrCard(ev, id)}</section>
     <div class="section-label"><span class="eyebrow">Gallery</span><span class="grow"></span><button class="btn text sm" data-act="wall-upload">${icon('add_photo_alternate')}Add photos</button><button class="icon-btn" data-act="wall-refresh" aria-label="Refresh">${icon('refresh')}</button></div>
@@ -114,7 +116,11 @@ async function act(a, el, ev){
     if(!S.canWrite) return; el.disabled = true;
     try{ const r = await api('', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({title:ev.name, date:ev.date, palette:(ev.theme?.palette || []).map(c => c.hex)})});
       if(await E.save(Store.update(`events/${ev.id}`, {gallery:{id:r.id, key:r.key}}))){ P.id = r.id; P.data = {open:true, count:0, photos:[]}; P.err = null; P.at = Date.now(); E.toast('Photo wall ready. Download the QR card next.', 'qr_code_2'); } }
-    catch(e){ el.disabled = false; E.toast('Couldn’t create the wall. Check your connection.', 'warning'); }
+    catch(e){
+      el.disabled = false;
+      if(e.status === 401){ P.needSignIn = true; E.render(); E.toast('Sign in to your workspace to create a photo wall.', 'lock'); }
+      else E.toast(!navigator.onLine || !e.status ? 'You’re offline. Connect to the internet to create the photo wall.' : (e.message || 'Couldn’t create the wall. Try again.'), 'warning');
+    }
   }
   else if(a === 'wall-copy') E.copyText(guestUrl(ev.gallery.id));
   else if(a === 'wall-share') E.share({title:`${ev.name} photo wall`, text:`Add your photos from ${ev.name} and see everyone’s:`, url:guestUrl(ev.gallery.id)}, guestUrl(ev.gallery.id));

@@ -9,7 +9,7 @@ E.$$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = E.esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 E.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 E.icon = (n, fill, cls='') => `<svg class="ms ${cls}" aria-hidden="true"><use href="/assets/icons.svg#${n}${fill ? '-f' : ''}"/></svg>`;
-E.inr = n => '₹' + Math.round(+n||0).toLocaleString('en-IN');
+E.inr = n => { const v = Math.round(+n||0); return (v < 0 ? '−₹' : '₹') + Math.abs(v).toLocaleString('en-IN'); };
 E.num = v => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g,'')); return isFinite(n) ? n : 0; };
 E.okHex = h => /^#[0-9a-f]{6}$/i.test(h||'') ? h : '#cccccc';
 E.slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'x';
@@ -116,7 +116,7 @@ E.Store = (() => {
 
 /* ---------- state ---------- */
 const S = E.S = { canWrite:true, events:[], evLoaded:false, cur:null, tab:'overview', sub:{plan:'venue', budget:'collect'}, filter:'all', query:'', doneOpen:false,
-  people:[], expenses:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null };
+  people:[], expenses:[], payments:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null };
 E.curEv = () => S.events.find(e => e.id === S.cur);
 E.evPath = (sub, id) => `events/${S.cur}/${sub}` + (id ? `/${id}` : '');
 
@@ -132,34 +132,53 @@ E.writeErr = e => {
 };
 E.save = async p => { try{ await p; return true; }catch(e){ console.warn(e); E.writeErr(e); return false; } };
 
-/* ---------- money & guest maths ---------- */
-E.stats = (ev, people, expenses) => {
+/* ---------- money & guest maths ----------
+   Contri rules (agreed with Ekta):
+   - each person pays a share: the default is per-head x (1 + plus-ones); a custom share replaces it
+   - a guest who isn't coming can have their share waived (Ekta decides each time)
+   - settle-up splits the actual spend in proportion to everyone's agreed share
+   Receipts live in their own collection (events/{id}/payments) so two phones can never overwrite each other;
+   older receipts stored on the guest (p.payments) are still counted. */
+const hasCustom = p => p.expected !== null && p.expected !== undefined && p.expected !== '';
+E.receipts = (p, payments) => (p.payments || []).map(x => ({...x, legacy:true})).concat((payments || []).filter(x => x.guestId === p.id));
+E.stats = (ev, people, expenses, payments = E.S.payments) => {
   const contri = E.contriOn(ev), per = +ev.perHead || 0;
   const ids = new Set(people.map(p => p.id));
   const rows = people.map(p => {
-    const paidIn = (p.payments||[]).reduce((a,x) => a + (+x.amount||0), 0);
+    const rec = E.receipts(p, payments).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+    const paidIn = rec.reduce((a,x) => a + (+x.amount||0), 0);
     const directList = expenses.filter(x => x.paidBy === p.id);
     const direct = directList.reduce((a,x) => a + (+x.amount||0), 0);
-    const expected = !contri ? 0 : (p.expected !== null && p.expected !== undefined && p.expected !== '') ? +p.expected : per;
+    const plusOnes = +p.plusOnes || 0, people = 1 + plusOnes, waived = !!p.waived;
+    const base = !contri ? 0 : hasCustom(p) ? +p.expected : per * people;
+    const expected = waived ? 0 : base;
     const contributed = paidIn + direct;
     const due = Math.max(0, expected - contributed);
     const status = expected <= 0 ? (contributed > 0 ? 'paid' : 'none') : contributed >= expected ? 'paid' : contributed > 0 ? 'part' : 'pending';
-    return {...p, rsvp:['going','maybe','no','invited'].includes(p.rsvp) ? p.rsvp : 'invited', plusOnes:+p.plusOnes || 0, paidIn, direct, directList, expected, contributed, due, status};
+    return {...p, rsvp:['going','maybe','no','invited'].includes(p.rsvp) ? p.rsvp : 'invited', plusOnes, people, waived, custom:hasCustom(p), base, receipts:rec, paidIn, direct, directList, expected, contributed, due, status};
   }).sort((a,b) => String(a.name).localeCompare(String(b.name)));
   const target = rows.reduce((a,r) => a + r.expected, 0);
   const collected = rows.reduce((a,r) => a + r.contributed, 0);
   const potIn = rows.reduce((a,r) => a + r.paidIn, 0);
+  const directIn = rows.reduce((a,r) => a + r.direct, 0);
   const spent = expenses.reduce((a,x) => a + (+x.amount||0), 0);
   const potSpent = expenses.filter(x => !ids.has(x.paidBy)).reduce((a,x) => a + (+x.amount||0), 0);
   const pending = rows.reduce((a,r) => a + r.due, 0);
   const sharers = rows.filter(r => r.expected > 0 || r.contributed > 0);
+  // settle-up weights: agreed shares when set, otherwise people (1 + plus-ones); waived guests carry none
+  const byShare = sharers.some(r => r.expected > 0);
+  sharers.forEach(r => { r.weight = byShare ? r.expected : (r.waived ? 0 : r.people); });
+  const totalW = sharers.reduce((a,r) => a + r.weight, 0);
+  sharers.forEach(r => { r.fair = totalW ? spent * r.weight / totalW : 0; r.bal = Math.round(r.contributed - r.fair); });
+  const splitPeople = sharers.filter(r => r.weight > 0).reduce((a,r) => a + r.people, 0);
+  const uniform = sharers.filter(r => r.weight > 0).every(r => !r.custom);
   const count = k => rows.filter(r => r.rsvp === k).length;
   const going = rows.filter(r => r.rsvp === 'going');
-  return {contri, rows, target, collected, potIn, spent, potSpent, inHand:potIn - potSpent, pending,
+  return {contri, rows, target, collected, potIn, directIn, spent, potSpent, inHand:potIn - potSpent, pending,
     pendingCount:rows.filter(r => r.due > 0).length, paidCount:rows.filter(r => r.status === 'paid').length,
-    budget:(+ev.budget || target), sharers, fair: sharers.length ? spent / sharers.length : 0,
+    budget:(+ev.budget || target), sharers, splitPeople, uniform, perPerson: splitPeople ? spent / splitPeople : 0,
     rsvp:{going:count('going'), maybe:count('maybe'), no:count('no'), invited:count('invited')},
-    headcount: going.reduce((a,r) => a + 1 + r.plusOnes, 0)};
+    headcount: going.reduce((a,r) => a + r.people, 0)};
 };
 
 /* ---------- sheets ---------- */

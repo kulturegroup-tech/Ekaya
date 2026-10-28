@@ -29,7 +29,7 @@ function render(){
   const up = $('#g-up-name') ? $('#g-up-name').value : getName();
   $('#g').innerHTML = `<section class="g-head glass foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">${esc(data.title)}</h1>${data.date ? `<p class="sub">${esc(fmtDate(data.date))}</p>` : ''}<span class="tag gold" id="g-count">${icon('photo_library')}${data.count} ${data.count === 1 ? 'photo' : 'photos'}</span>${pal.length ? `<div class="strip">${pal.map(h => `<i style="--c:${esc(h)}"></i>`).join('')}</div>` : ''}</section>
     ${data.open ? `<section class="g-up glass"><label class="field"><span>Your name (optional)</span><input class="input" id="g-up-name" maxlength="30" placeholder="So people know who took it" value="${esc(up)}" autocomplete="name"></label>
-      <button class="btn gold" id="g-add" type="button">${icon('add_photo_alternate')}Add your photos</button><div class="g-prog" id="g-prog"></div><p class="hint-s">Photos are shared with everyone who has this link.</p></section>`
+      <button class="btn gold" id="g-add" type="button">${icon('add_photo_alternate')}Add your photos</button><div class="g-prog" id="g-prog">${retryHtml()}</div><p class="hint-s">Photos are shared with everyone who has this link.</p></section>`
       : `<section class="g-up glass"><p class="sub">${icon('lock', 'sm')} Uploads are closed. You can still browse and save every photo.</p></section>`}
     <div class="section-label"><span class="eyebrow">Gallery</span></div>
     <div id="g-gal">${galHtml()}</div>
@@ -53,25 +53,35 @@ function scaled(file, max){
   return new Promise((res, rej) => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => { const s = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c); }; im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('That image couldn’t be read. Try a JPG or PNG.')); }; im.src = u; });
 }
 const toBlob = (c, q) => new Promise(r => c.toBlob(r, 'image/jpeg', q));
+/* photos that didn't go through (weak signal at the venue) stay listed until they're retried */
+let failed = [];
+const retryHtml = () => failed.length ? `<div class="g-retry">${icon('cloud_off', 'sm')}<span><b>${failed.length} ${failed.length === 1 ? 'photo didn’t' : 'photos didn’t'} upload.</b> The signal may be weak here.</span><button class="btn sm" type="button" id="g-retry">Retry ${failed.length}</button></div>` : '';
 async function uploadAll(files){
   files = [...files].filter(f => f.type.startsWith('image/')); if(!files.length || busy) return;
   busy = true; const name = ($('#g-up-name')?.value || '').trim(); try{ localStorage.setItem(NAME_KEY, name); }catch(e){}
-  const prog = $('#g-prog'); let ok = 0;
+  const prog = $('#g-prog'); let ok = 0; const again = [];
   for(let i = 0; i < files.length; i++){
     if(prog) prog.innerHTML = `<div class="row-sub">${icon('upload', 'sm')} Uploading ${i + 1} of ${files.length}…</div><div class="lin"><i style="--p:${Math.round(i / files.length * 100)}"></i></div>`;
     try{
       let big = await toBlob(await scaled(files[i], 2048), 0.85); if(big.size > 3.8e6) big = await toBlob(await scaled(files[i], 1600), 0.8);
       const small = await toBlob(await scaled(files[i], 480), 0.78);
       const fd = new FormData(); fd.append('full', big, 'photo.jpg'); fd.append('thumb', small, 'thumb.jpg'); fd.append('name', name);
-      const r = await fetch(`/api/gallery/${encodeURIComponent(id)}/photos`, {method:'POST', body:fd}); const j = await r.json().catch(() => ({}));
+      let r;
+      try{ r = await fetch(`/api/gallery/${encodeURIComponent(id)}/photos`, {method:'POST', body:fd}); }
+      catch(netErr){ again.push(files[i]); continue; }
+      const j = await r.json().catch(() => ({}));
+      if(r.status >= 500){ again.push(files[i]); continue; }
       if(!r.ok) throw new Error(j.error || 'Upload failed. Try again.');
       ok++;
     }catch(e){ toast(e.message || 'Upload failed. Try again.', 'warning'); }
   }
-  busy = false;
-  if(prog) prog.innerHTML = '';
-  if(ok){ toast(ok === 1 ? 'Your photo is on the wall. Thank you!' : `${ok} photos added. Thank you!`, 'favorite'); await load(); }
+  busy = false; failed = again;
+  if(prog) prog.innerHTML = retryHtml();
+  if(ok) toast(failed.length ? `${ok} uploaded, ${failed.length} to retry` : ok === 1 ? 'Your photo is on the wall. Thank you!' : `${ok} photos added. Thank you!`, failed.length ? 'cloud_off' : 'favorite');
+  else if(failed.length) toast('Couldn’t upload just now. Tap Retry when the signal is better.', 'cloud_off');
+  if(ok) await load();
 }
+document.addEventListener('click', e => { if(e.target.closest('#g-retry')) uploadAll(failed); });
 $('#gPick').addEventListener('change', e => { uploadAll(e.target.files).finally(() => { e.target.value = ''; }); });
 
 /* lightbox */

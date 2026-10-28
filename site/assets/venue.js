@@ -399,14 +399,30 @@ function undo(st){ if(!st.undo.length) return; st.redo.push(JSON.stringify(st.pl
 function redo(st){ if(!st.redo.length) return; st.undo.push(JSON.stringify(st.plan.items)); st.plan.items = JSON.parse(st.redo.pop()); if(!selItem(st)) st.sel = null; renderItems(st); renderSel(st); commit(st); }
 function select(st, id){ st.sel = id; renderSel(st); }
 
+/* new items go into the nearest clear space instead of piling up in the middle */
+const AREAS = new Set(['wall','label','fairy','lantern']), isArea = t => !!(CAT[t] && (CAT[t].ground || AREAS.has(t)));
+function freeSpot(st, type, from){
+  const c = CAT[type], rad = Math.max(c.w, c.d) / 2, pad = 0.6, W = st.plan.w, H = st.plan.h;
+  if(isArea(type)) return from;
+  const obs = st.plan.items.filter(i => CAT[i.type] && !isArea(i.type)).map(i => ({x:i.x, y:i.y, r:Math.max(i.w || CAT[i.type].w, i.d || CAT[i.type].d) / 2}));
+  const clear = (x, y) => x - rad >= 0 && y - rad >= 0 && x + rad <= W && y + rad <= H && obs.every(o => Math.hypot(o.x - x, o.y - y) >= o.r + rad + pad);
+  const cx = Math.min(W - rad, Math.max(rad, from.x)), cy = Math.min(H - rad, Math.max(rad, from.y));
+  if(clear(cx, cy)) return {x:cx, y:cy};
+  for(let ring = 1; ring < 80; ring++){
+    const d = ring * 0.5, steps = Math.max(8, ring * 6);
+    for(let k = 0; k < steps; k++){ const a = k / steps * Math.PI * 2, x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d; if(clear(x, y)) return {x, y}; }
+  }
+  return {x:cx, y:cy};
+}
 function addItem(st, type, at){
   if(!S.canWrite) return;
   const c = CAT[type], r = st.el.getBoundingClientRect();
-  const center = at || toWorld(st, r.left + r.width / 2, r.top + r.height / 2);
+  const center = at || freeSpot(st, type, toWorld(st, r.left + r.width / 2, r.top + r.height / 2));
   checkpoint(st);
   const it = {id:'i' + uid(), type, x:f(Math.min(st.plan.w, Math.max(0, snapV(st, center.x)))), y:f(Math.min(st.plan.h, Math.max(0, snapV(st, center.y)))), rot:0, w:c.w, d:c.d, label:null};
   if(c.table){ const used = new Set(st.plan.items.map(i => i.label)); let n = 1; while(used.has('T' + n)) n++; it.label = 'T' + n; }
   st.plan.items.push(it); st.sel = it.id; renderItems(st); renderSel(st); commit(st); E.vibrate(8);
+  return it;
 }
 function removeSel(st){ const it = selItem(st); if(!it) return; checkpoint(st); st.plan.items = st.plan.items.filter(i => i.id !== it.id); st.sel = null; renderItems(st); renderSel(st); commit(st); E.toast(`${CAT[it.type].label} removed`, 'delete'); }
 function dupSel(st){
@@ -521,10 +537,13 @@ function library(st){
   const grid = () => { const g = LIB.find(l => l[0] === cat); return g[3].map(t => `<button class="lib-item" type="button" data-t="${t}"><span class="sym">${symbolSvg(t)}</span><b>${esc(CAT[t].label)}</b><small>${fmtLen(st, CAT[t].w)} × ${fmtLen(st, CAT[t].d)}</small></button>`).join(''); };
   E.openSheet({title:'Add to the venue', body:`<div class="lib-cats" id="lib-cats">${LIB.map(([k, l, ic]) => `<button class="chip" type="button" data-c="${k}" aria-pressed="${k === cat}">${icon(ic)}${l}</button>`).join('')}</div>
     <div class="lib-grid" id="lib-grid">${grid()}</div>
-    <button class="btn ghost" type="button" id="lib-layouts">${icon('dashboard_customize')}Start from a ready layout</button>`,
+    <div class="sheet-foot"><button class="btn ghost" type="button" id="lib-layouts">${icon('dashboard_customize')}Ready layouts</button><span class="grow lib-added" id="lib-added" aria-live="polite"></span><button class="btn" type="button" data-act="close-sheet">Done</button></div>`,
   mount: b => {
     $('#lib-cats', b).addEventListener('click', e => { const c = e.target.closest('[data-c]'); if(!c) return; cat = st.libCat = c.dataset.c; $$('#lib-cats .chip', b).forEach(x => x.setAttribute('aria-pressed', x.dataset.c === cat)); $('#lib-grid', b).innerHTML = grid(); });
-    $('#lib-grid', b).addEventListener('click', e => { const t = e.target.closest('[data-t]'); if(!t) return; E.closeSheet(); addItem(st, t.dataset.t); });
+    let added = 0;
+    $('#lib-grid', b).addEventListener('click', e => { const t = e.target.closest('[data-t]'); if(!t) return; const it = addItem(st, t.dataset.t); if(!it) return; added++;
+      t.classList.add('just'); setTimeout(() => t.classList.remove('just'), 600);
+      $('#lib-added', b).textContent = `${it.label || CAT[it.type].label} added${added > 1 ? ` (${added})` : ''}`; });
     $('#lib-layouts', b).addEventListener('click', () => { E.closeSheet(); layoutSheet(st); });
   }});
 }

@@ -1,8 +1,8 @@
 /* Ekaya service worker: opens instantly and works offline at venues.
    Pages, scripts and styles: network first (fresh after every deploy), cached copy when offline.
    Fonts, icons, 3D library and uploaded mood photos: cache first. The data API is never cached. */
-const V = 'ekaya-v3';
-const SHELL = ['/', '/assets/app.css', '/assets/core.js', '/assets/sync.js', '/assets/venue.js', '/assets/venue3d.js', '/assets/photos.js', '/assets/app.js',
+const V = 'ekaya-v4';
+const SHELL = ['/', '/assets/app.css', '/assets/core.js', '/assets/sync.js', '/assets/venue.js', '/assets/venue3d.js', '/assets/photos.js', '/assets/runsheet.js', '/assets/app.js',
   '/assets/icons.svg', '/assets/vendor/qrcode.js', '/assets/fonts/cormorant.woff2', '/assets/fonts/google-sans-flex.woff2', '/assets/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', e => {
