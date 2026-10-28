@@ -22,11 +22,11 @@ function qrCard(ev, id){
 function view(ev){
   const head = `<section class="vhead"><p class="eyebrow gold">${esc(ev.name)}</p><div class="vhead-row"><h1 class="h1">Photo wall</h1></div></section>`;
   const signedOut = E.Store.mode === 'local' && P.needSignIn;
-  if(!E.onNetlify()) return head + `<section class="empty glass"><span class="empty-ic">${icon('qr_code_2')}</span><h3>Open Ekaya on its website</h3><p>The QR photo wall needs the Netlify site, where guests can upload without an account.</p></section>`;
+  if(!E.onNetlify()) return head + `<section class="empty glass"><span class="empty-ic">${icon('qr_code_2')}</span><h3>Open Ekāya on its website</h3><p>The QR photo wall needs the Netlify site, where guests can upload without an account.</p></section>`;
   if(!ev.gallery) return head + `<section class="wall-hero glass foil"><div style="display:flex;flex-direction:column;gap:16px">
       <p class="sub" style="font-size:17px">Put one QR code on the tables. Guests scan it, add their photos from the party, and everyone can see and download the whole gallery. No app, no login.</p>
       <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--ink-2)"><li>Create the wall and print the QR card</li><li>Guests scan and upload from their phones</li><li>Everyone browses and saves the photos</li></ol>
-      ${signedOut ? `<p class="hint">${icon('lock')}<span>Sign in to your Ekaya workspace to create a shareable photo wall. You can preview the card here.</span></p><div><button class="btn gold" data-act="turn-on-sync">${icon('login')}Sign in</button></div>`
+      ${signedOut ? `<p class="hint">${icon('lock')}<span>Sign in to your Ekāya workspace to create a shareable photo wall. You can preview the card here.</span></p><div><button class="btn gold" data-act="turn-on-sync">${icon('login')}Sign in</button></div>`
         : S.canWrite ? `<div><button class="btn gold" data-act="wall-create">${icon('qr_code_2')}Create photo wall</button></div>` : ''}</div>
       <div class="qr-card preview" style="opacity:.9"><span class="pv-tag">Preview</span><span class="qe">Photo wall</span><h3>${esc(ev.name)}</h3><div class="qr ph">${icon('qr_code_2', false, 'lg')}</div><p>Scan to add your photos</p></div></section>`;
   const id = ev.gallery.id, d = P.id === id ? P.data : null, url = guestUrl(id);
@@ -101,9 +101,11 @@ async function card(ev){
     x.fillStyle = '#1C1611'; for(let r = 0; r < n; r++) for(let q = 0; q < n; q++) if(qr.isDark(r, q)) x.fillRect(Math.floor(ox + (q + 2) * cell), Math.floor(oy + (r + 2) * cell), Math.ceil(cell), Math.ceil(cell));
     x.fillStyle = '#1C1611'; x.font = 'italic 500 64px "Cormorant Garamond", Georgia, serif'; x.fillText('Scan to add your photos', W / 2, 1250);
     x.fillStyle = '#6E6156'; x.font = '500 30px "Google Sans Flex", system-ui, sans-serif'; x.fillText('and see everyone’s from the night', W / 2, 1310);
-    x.fillStyle = '#A29486'; x.font = '500 24px "Google Sans Flex", system-ui, sans-serif'; x.fillText(url.replace(/^https?:\/\//, ''), W / 2, 1420);
+    x.fillStyle = '#A29486'; x.font = '500 24px "Google Sans Flex", system-ui, sans-serif'; x.fillText(url.replace(/^https?:\/\//, ''), W / 2, 1385);
     const pal = (ev.theme?.palette || []).map(p => okHex(p.hex)); if(pal.length){ const sw = (W - 116) / pal.length; pal.forEach((h, i) => { x.fillStyle = h; x.fillRect(58 + i * sw, H - 58 - 22, sw + 1, 22); }); }
-    x.fillStyle = '#9C7637'; x.font = 'italic 600 40px "Cormorant Garamond", Georgia, serif'; x.fillText('ekaya', W / 2, H - 130);
+    const logo = await new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = '/assets/brand/lockup-maroon.svg'; });
+    if(logo){ const lh = 132, lw = lh * 1208 / 1066; x.drawImage(logo, (W - lw) / 2, H - 92 - lh, lw, lh); }
+    else { x.fillStyle = '#682127'; x.font = '600 40px "Cormorant Garamond", Georgia, serif'; x.fillText('EKĀYA', W / 2, H - 130); }
     const blob = await E.toBlob(c, 0.95, 'image/png'), file = new File([blob], `${E.slug(ev.name)}-photo-wall-qr.png`, {type:'image/png'});
     if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file], title:`${ev.name} photo wall`}); return; }catch(e){ if(e.name === 'AbortError') return; } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();

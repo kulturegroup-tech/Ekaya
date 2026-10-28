@@ -30,6 +30,11 @@ E.ring = (p, size=68, sw=6, cls='') => {
 E.waLink = (text, phone) => { let p = String(phone||'').replace(/\D/g,''); if(p.length === 10) p = '91' + p; return `https://wa.me/${p}?text=${encodeURIComponent(text)}`; };
 E.upiLink = (vpa, name, amount, note) => `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(name||'Ekaya')}${amount > 0 ? `&am=${(+amount).toFixed(2)}&cu=INR` : ''}${note ? `&tn=${encodeURIComponent(String(note).slice(0,50))}` : ''}`;
 E.vibrate = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
+/* the Ekāya logo, drawn from the brand sprite so it takes the theme colour */
+const BRAND = '/assets/brand.svg';
+E.logo = (kind = 'bar') => kind === 'stack'
+  ? `<div class="logo-stack" role="img" aria-label="Ekāya Events"><svg class="ls-mark" aria-hidden="true"><use href="${BRAND}#mark"/></svg><svg class="ls-word" aria-hidden="true"><use href="${BRAND}#ekaya"/></svg><svg class="ls-tag" aria-hidden="true"><use href="${BRAND}#events"/></svg></div>`
+  : `<span class="logo" role="img" aria-label="Ekāya Events"><svg class="lg-mark" aria-hidden="true"><use href="${BRAND}#mark"/></svg><span class="lg-text"><svg class="lg-word" aria-hidden="true"><use href="${BRAND}#ekaya"/></svg><span class="lg-tag">Events</span></span></span>`;
 E.onNetlify = () => !window.claude && /^https?:/.test(location.protocol);
 
 /* ---------- templates ---------- */

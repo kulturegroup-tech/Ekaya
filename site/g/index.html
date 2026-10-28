@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Photo Wall · Ekaya</title>
+<title>Photo Wall · Ekāya Events</title>
 <meta name="description" content="Add your photos and see everyone’s from the celebration.">
 <meta name="theme-color" content="#F6F1EA" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0D0A0C" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
 <link rel="preload" href="/assets/fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/google-sans-flex.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/app.css">
@@ -17,7 +19,9 @@
   .g-head{position:relative;overflow:hidden;padding:30px 24px 34px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
   .g-head .display{font-size:clamp(44px,11vw,76px)}
   .g-head .strip{height:6px}
-  .g-brand{font-family:var(--f-display);font-style:italic;font-weight:600;font-size:22px;color:var(--gold)}
+  .g-logo{display:flex;justify-content:center;padding:6px 0 2px}
+  .g-foot{display:flex;flex-direction:column;align-items:center;gap:10px;margin:28px 0 8px;color:var(--brand);font:600 10px/1 var(--f-ui);letter-spacing:.3em;text-transform:uppercase}
+  .g-foot svg{width:22px;height:33px;fill:currentColor}
   .g-up{padding:20px;display:flex;flex-direction:column;gap:14px}
   .g-up .btn{height:58px;font-size:16px}
   .g-prog{display:flex;flex-direction:column;gap:8px}

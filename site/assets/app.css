@@ -10,7 +10,7 @@
   --wine:#7A2440; --wine-soft:rgba(122,36,64,.09);
   --primary:#1C1611; --on-primary:#F7F1E8;
   --glass:rgba(255,252,247,.62); --glass-hi:rgba(255,252,247,.88); --edge:rgba(255,255,255,.95);
-  --line:rgba(60,40,20,.09); --line-2:rgba(60,40,20,.17); --field:rgba(255,255,255,.72); --solid:#FFFCF7;
+  --line:rgba(60,40,20,.09); --line-2:rgba(60,40,20,.17); --field:rgba(255,255,255,.72); --solid:#FFFCF7; --brand:#682127;
   --shadow:0 26px 54px -32px rgba(70,40,12,.42),0 2px 8px -4px rgba(70,40,12,.12);
   --shadow-lg:0 40px 80px -40px rgba(70,40,12,.55),0 4px 16px -6px rgba(70,40,12,.16);
   --glow-a:rgba(214,170,92,.34); --glow-b:rgba(156,44,86,.13); --grain-op:.05;
@@ -31,7 +31,7 @@
   --wine:#E68BA8; --wine-soft:rgba(230,139,168,.11);
   --primary:#D8B67B; --on-primary:#1A120A;
   --glass:rgba(30,23,27,.6); --glass-hi:rgba(42,32,37,.86); --edge:rgba(255,240,222,.08);
-  --line:rgba(255,236,214,.11); --line-2:rgba(255,236,214,.2); --field:rgba(255,255,255,.06); --solid:#18131A;
+  --line:rgba(255,236,214,.11); --line-2:rgba(255,236,214,.2); --field:rgba(255,255,255,.06); --solid:#18131A; --brand:#F2E8C6;
   --shadow:0 30px 60px -30px rgba(0,0,0,.85),0 2px 10px -4px rgba(0,0,0,.5);
   --shadow-lg:0 40px 90px -36px rgba(0,0,0,.95),0 4px 18px -6px rgba(0,0,0,.6);
   --glow-a:rgba(216,170,96,.16); --glow-b:rgba(170,50,96,.12); --grain-op:.07;
@@ -48,7 +48,7 @@
   --wine:#E68BA8; --wine-soft:rgba(230,139,168,.11);
   --primary:#D8B67B; --on-primary:#1A120A;
   --glass:rgba(30,23,27,.6); --glass-hi:rgba(42,32,37,.86); --edge:rgba(255,240,222,.08);
-  --line:rgba(255,236,214,.11); --line-2:rgba(255,236,214,.2); --field:rgba(255,255,255,.06); --solid:#18131A;
+  --line:rgba(255,236,214,.11); --line-2:rgba(255,236,214,.2); --field:rgba(255,255,255,.06); --solid:#18131A; --brand:#F2E8C6;
   --shadow:0 30px 60px -30px rgba(0,0,0,.85),0 2px 10px -4px rgba(0,0,0,.5);
   --shadow-lg:0 40px 90px -36px rgba(0,0,0,.95),0 4px 18px -6px rgba(0,0,0,.6);
   --glow-a:rgba(216,170,96,.16); --glow-b:rgba(170,50,96,.12); --grain-op:.07;
@@ -669,3 +669,21 @@ body.in-event .ambient i{animation:none}
 
 /* photo wall preview card */
 .qr-card .pv-tag{position:absolute;top:16px;right:16px;font:700 9.5px/1 var(--f-ui);letter-spacing:.16em;text-transform:uppercase;padding:5px 8px;border-radius:999px;background:rgba(176,132,58,.16);color:#7d5e2a}
+
+/* ---------- Ekāya logo ---------- */
+.logo{display:inline-flex;align-items:center;gap:10px;color:var(--brand);line-height:1}
+.logo svg{fill:currentColor;display:block}
+.lg-mark{width:24px;height:36px}
+.lg-text{display:flex;flex-direction:column;align-items:center;gap:5px}
+.lg-word{width:80px;height:19px}
+.lg-tag{font:600 8px/1 var(--f-ui);letter-spacing:.5em;text-transform:uppercase;margin-right:-.5em;color:currentColor;opacity:.85}
+.sidebar .logo{margin-left:2px}
+.logo-stack{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--brand);padding:8px 0 4px;animation:rise .6s cubic-bezier(.2,.8,.2,1)}
+.logo-stack svg{fill:currentColor;display:block}
+.ls-mark{width:52px;height:78px}
+.ls-word{width:170px;height:41px;margin-top:6px}
+.ls-tag{width:92px;height:11px;opacity:.85}
+.boot-logo{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--brand)}
+.boot-logo svg{fill:currentColor;width:44px;height:66px;animation:breathe-in 1.6s ease-in-out infinite alternate}
+@keyframes breathe-in{from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.logo-stack,.boot-logo svg{animation:none}}

@@ -75,8 +75,8 @@ E.onAuthLost = () => { signedOut(); toast('Please sign in again to keep syncing.
 const themeIcon = () => ({auto:'contrast', light:'light_mode', dark:'dark_mode'})[E.getTheme()];
 function renderTop(ev){
   const t = $('#topbar');
-  if(S.gate){ t.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div><div class="grow"></div><button class="icon-btn" data-act="theme" aria-label="Change theme">${icon(themeIcon())}</button>`; return; }
-  if(!S.cur){ t.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div><div class="grow"></div>${syncChip()}<button class="icon-btn" data-act="settings" aria-label="Settings">${icon('settings')}</button>`; return; }
+  if(S.gate){ t.innerHTML = `<div class="grow"></div><button class="icon-btn" data-act="theme" aria-label="Change theme">${icon(themeIcon())}</button>`; return; }
+  if(!S.cur){ t.innerHTML = `<div class="brand">${E.logo()}</div><div class="grow"></div>${syncChip()}<button class="icon-btn" data-act="settings" aria-label="Settings">${icon('settings')}</button>`; return; }
   const n = ev ? E.daysUntil(ev.date) : null;
   t.innerHTML = `<button class="icon-btn" data-act="home" aria-label="All events">${icon('arrow_back')}</button>
     <div class="top-title"><b>${esc(ev ? ev.name : '')}</b>${ev && ev.date ? `<small>${n === 0 ? 'TODAY' : n > 0 ? `${n} ${n === 1 ? 'DAY' : 'DAYS'} TO GO` : E.fmtShort(ev.date).toUpperCase()}</small>` : ''}</div>
@@ -90,7 +90,7 @@ function renderSide(ev){
   const s = $('#sidebar');
   if(!S.cur || !ev || S.gate){ s.innerHTML = ''; return; }
   const n = E.daysUntil(ev.date), t = E.TYPES[ev.type] || E.TYPES.party;
-  s.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div>
+  s.innerHTML = `<div class="brand">${E.logo()}</div>
     <button class="btn text sm" data-act="home" style="align-self:flex-start;margin-left:-12px">${icon('arrow_back')}All events</button>
     <div class="side-event"><span class="eyebrow gold">${icon(t.icon, false, 'sm')} ${esc(t.label)}</span><b>${esc(ev.name)}</b><span class="muted small">${ev.date ? `${E.fmtMed(ev.date)}${n != null && n >= 0 ? ` · ${n === 0 ? 'today' : `${n} ${n === 1 ? 'day' : 'days'} to go`}` : ''}` : 'Date not set'}</span></div>
     <nav class="side-nav" aria-label="Event sections">${TABS.map(([k, ic, l]) => `<button class="side-item" data-act="tab" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${icon(ic, S.tab === k)}${l}</button>`).join('')}</nav>
@@ -736,14 +736,14 @@ async function addPhotos(files){
 function gateView(){
   const setup = S.gate === 'setup';
   return `<section class="gate">
+    ${E.logo('stack')}
     <div class="gate-card glass foil">
-      <div class="gate-mark" aria-hidden="true">${icon(setup ? 'wand_stars' : 'lock')}</div>
-      <p class="eyebrow gold">${setup ? 'Welcome to Ekaya' : 'Welcome back'}</p>
-      <h1 class="display">${setup ? 'Set up your <em>workspace</em>' : `Sign in to <em>${esc(S.owner || 'Ekaya')}</em>`}</h1>
+      <p class="eyebrow gold">${setup ? 'Welcome to Ekāya' : 'Welcome back'}</p>
+      <h1 class="display">${setup ? 'Set up your <em>workspace</em>' : `Sign in to <em>${esc(S.owner || 'Ekāya')}</em>`}</h1>
       <p class="sub">${setup ? 'Choose one passcode. Use it on your phone, laptop or a helper’s device, and every guest, payment and plan stays in sync.' : 'Enter the workspace passcode to open your events on this device.'}</p>
       <form id="gateForm" class="gate-form" novalidate>
         <input type="text" name="username" autocomplete="username" value="ekaya" tabindex="-1" aria-hidden="true" class="vh">
-        ${setup ? `<label class="field"><span>Workspace name</span><input class="input" id="gt-owner" value="${esc(S.owner || 'Ekaya')}" maxlength="40" autocomplete="organization"></label>` : ''}
+        ${setup ? `<label class="field"><span>Workspace name</span><input class="input" id="gt-owner" value="${esc(S.owner || 'Ekāya')}" maxlength="40" autocomplete="organization"></label>` : ''}
         <label class="field"><span>Passcode</span><div class="pass-in"><input class="input" id="gt-pass" type="password" minlength="6" autocomplete="${setup ? 'new-password' : 'current-password'}" placeholder="${setup ? 'At least 6 characters' : ''}" data-autofocus><button type="button" class="icon-btn" data-act="peek" aria-label="Show passcode">${icon('visibility')}</button></div></label>
         ${setup ? `<label class="field"><span>Type it again</span><input class="input" id="gt-pass2" type="password" autocomplete="new-password"></label>` : ''}
         <p class="gate-err" id="gt-err" role="alert" hidden></p>
@@ -761,7 +761,7 @@ async function gateSubmit(){
   if(pass.length < 6) return fail('Use at least 6 characters.');
   if(setup && pass !== $('#gt-pass2').value) return fail('The two passcodes don’t match.');
   go.disabled = true; go.textContent = setup ? 'Creating…' : 'Signing in…';
-  try{ if(setup) await E.Remote.setup(val(document, '#gt-owner') || 'Ekaya', pass); else await E.Remote.login(pass); }
+  try{ if(setup) await E.Remote.setup(val(document, '#gt-owner') || 'Ekāya', pass); else await E.Remote.login(pass); }
   catch(x){ return fail(navigator.onLine ? x.message : 'You’re offline. Connect to the internet to sign in.'); }
   lsSet(MODEKEY, null);
   S.gate = null; Store.init('remote');
@@ -805,7 +805,7 @@ const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.p
 const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let installEvt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if(sheetIs('settings')) E.refreshSheet(); });
-window.addEventListener('appinstalled', () => { installEvt = null; toast('Ekaya is on your home screen', 'add_home'); });
+window.addEventListener('appinstalled', () => { installEvt = null; toast('Ekāya is on your home screen', 'add_home'); });
 function settingsBody(){
   const m = Store.mode, th = E.getTheme();
   let sync = '';
@@ -815,16 +815,16 @@ function settingsBody(){
       : st.pending ? ['sync', '', 'Syncing', `${st.pending} ${st.pending === 1 ? 'change' : 'changes'} on the way.`]
       : ['cloud_done', 'good', 'All changes synced', st.lastSync ? `Last checked ${ago(st.lastSync)}. Other devices catch up within seconds while you’re working.` : 'Connecting…'];
     sync = `<div class="panel set-sync ${cls}"><div class="row-flex"><span class="set-ic">${icon(ic)}</span><div class="grow"><b>${head}</b><p class="muted small">${line}</p></div></div>
-      <div class="kv"><div><span>Workspace</span><b>${esc(E.Remote.owner() || 'Ekaya')}</b></div><div><span>This device</span><b>${esc(E.Remote.device())}</b></div></div>
+      <div class="kv"><div><span>Workspace</span><b>${esc(E.Remote.owner() || 'Ekāya')}</b></div><div><span>This device</span><b>${esc(E.Remote.device())}</b></div></div>
       <div class="set-actions"><button class="btn ghost sm" data-act="sync-now">${icon('sync')}Sync now</button><button class="btn ghost sm" data-act="change-pass">${icon('password')}Change passcode</button><button class="btn danger-text sm" data-act="sign-out">${icon('logout')}Sign out</button></div></div>
       ${localExtras().evs.length && !lsGet(IMPKEY) ? `<button class="opt wide" data-act="import-local">${icon('cloud_upload')}<b>Add this device’s events</b><span>Copies events saved only in this browser into the workspace. Nothing already there gets replaced.</span></button>` : ''}`;
   } else if(m === 'local'){
     sync = `<div class="panel set-sync"><div class="row-flex"><span class="set-ic">${icon('mobile')}</span><div class="grow"><b>Saved on this device only</b><p class="muted small">Turn on sync to use Ekaya on your phone and laptop together, with a helper, or after clearing this browser.</p></div></div>
       ${E.onNetlify() ? `<div class="set-actions"><button class="btn gold sm" data-act="turn-on-sync">${icon('cloud_sync')}Turn on sync</button></div>` : ''}</div>`;
   } else sync = `<div class="panel set-sync good"><div class="row-flex"><span class="set-ic">${icon('cloud_done')}</span><div class="grow"><b>Live</b><p class="muted small">Changes sync for everyone with edit access.</p></div></div></div>`;
-  const install = standalone() ? `<p class="hint">${icon('check_circle')}<span>Ekaya is installed on this device.</span></p>`
-    : installEvt ? `<button class="opt wide" data-act="install">${icon('add_home')}<b>Install Ekaya</b><span>Opens full screen from your home screen, like an app.</span></button>`
-    : isIOS() ? `<p class="hint">${icon('ios_share')}<span>To add Ekaya to your home screen, tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>`
+  const install = standalone() ? `<p class="hint">${icon('check_circle')}<span>Ekāya is installed on this device.</span></p>`
+    : installEvt ? `<button class="opt wide" data-act="install">${icon('add_home')}<b>Install Ekāya</b><span>Opens full screen from your home screen, like an app.</span></button>`
+    : isIOS() ? `<p class="hint">${icon('ios_share')}<span>To add Ekāya to your home screen, tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>`
     : `<p class="hint">${icon('add_home')}<span>To install, open your browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</span></p>`;
   return `<div class="section-label"><span class="eyebrow">Sync</span></div>${sync}
     <div class="section-label"><span class="eyebrow">Appearance</span></div>
