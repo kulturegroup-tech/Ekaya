@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ekaya Events</title>
+<meta name="description" content="Ekaya Events: guests, venue layouts, budgets, mood boards and photo walls for every celebration.">
+<meta name="theme-color" content="#F6F1EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D0A0C" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ekaya">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icon-180.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preload" href="/assets/fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/google-sans-flex.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/app.css">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <radialGradient id="vzg-light"><stop offset="0" stop-color="var(--c-light)" stop-opacity=".75"/><stop offset="1" stop-color="var(--c-light)" stop-opacity="0"/></radialGradient>
+  <radialGradient id="vzg-fire"><stop offset="0" stop-color="var(--c-fire)" stop-opacity=".8"/><stop offset=".55" stop-color="var(--c-light)" stop-opacity=".3"/><stop offset="1" stop-color="var(--c-light)" stop-opacity="0"/></radialGradient>
+</defs></svg>
+<div class="ambient" aria-hidden="true"><i class="a"></i><i class="b"></i></div>
+<div id="app">
+  <header class="topbar" id="topbar"><div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div></header>
+  <aside class="sidebar" id="sidebar" aria-label="Event navigation"></aside>
+  <main id="view"><div class="wrap"><section class="hello"><p class="eyebrow gold">Ekaya</p><h1 class="display">Setting the <em>table</em></h1><p class="sub">Your events, guests and plans are loading.</p></section></div></main>
+  <nav class="dock" id="dock" aria-label="Event sections" hidden></nav>
+</div>
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></section>
+<div class="snack" id="snack" role="status" aria-live="polite"></div>
+<input type="file" id="filePick" accept="image/*" multiple hidden>
+<script src="/assets/vendor/qrcode.js" defer></script>
+<script src="/assets/core.js" defer></script>
+<script src="/assets/venue.js" defer></script>
+<script src="/assets/venue3d.js" defer></script>
+<script src="/assets/photos.js" defer></script>
+<script src="/assets/app.js" defer></script>
+</body>
+</html>

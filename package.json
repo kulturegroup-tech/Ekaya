@@ -1,0 +1,9 @@
+{
+  "name": "ekaya-events",
+  "private": true,
+  "type": "module",
+  "description": "Ekaya Events — event planning app with venue layouts and a QR photo wall",
+  "dependencies": {
+    "@netlify/blobs": "^10.7.13"
+  }
+}

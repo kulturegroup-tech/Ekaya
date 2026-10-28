@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Photo Wall · Ekaya</title>
+<meta name="description" content="Add your photos and see everyone’s from the celebration.">
+<meta name="theme-color" content="#F6F1EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D0A0C" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/google-sans-flex.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .gw{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:28px max(18px,env(safe-area-inset-right,0px)) 80px max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:22px}
+  .g-head{position:relative;overflow:hidden;padding:30px 24px 34px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+  .g-head .display{font-size:clamp(44px,11vw,76px)}
+  .g-head .strip{height:6px}
+  .g-brand{font-family:var(--f-display);font-style:italic;font-weight:600;font-size:22px;color:var(--gold)}
+  .g-up{padding:20px;display:flex;flex-direction:column;gap:14px}
+  .g-up .btn{height:58px;font-size:16px}
+  .g-prog{display:flex;flex-direction:column;gap:8px}
+  .g-prog .row{padding:10px 0;border-top:0}
+  .g-grid{columns:2;column-gap:8px}
+  @media (min-width:640px){.g-grid{columns:3}} @media (min-width:980px){.g-grid{columns:4}}
+  .g-grid button{display:block;width:100%;margin:0 0 8px;padding:0;border:0;border-radius:14px;overflow:hidden;background:var(--field);break-inside:avoid;cursor:zoom-in}
+  .g-grid img{display:block;width:100%;height:auto;min-height:80px}
+  .lb{position:fixed;inset:0;z-index:90;background:rgba(8,6,8,.94);display:flex;flex-direction:column;animation:fade .2s}
+  .lb-top,.lb-foot{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px;color:#F3EADF}
+  .lb-foot{padding:10px 16px calc(16px + env(safe-area-inset-bottom,0px));justify-content:center}
+  .lb .icon-btn{color:#F3EADF;background:rgba(255,255,255,.08)}
+  .lb .btn{background:rgba(255,255,255,.1);color:#F3EADF}
+  .lb-img{flex:1;min-height:0;display:grid;place-items:center;padding:0 10px;touch-action:pan-y}
+  .lb-img img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  .lb-meta{flex:1;font-size:13px;color:rgba(243,234,223,.75);text-align:center}
+</style>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i class="a"></i><i class="b"></i></div>
+<main class="gw" id="g">
+  <section class="g-head glass foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">Opening the <em>gallery</em></h1></section>
+</main>
+<div class="snack" id="snack" role="status" aria-live="polite"></div>
+<input type="file" id="gPick" accept="image/*" multiple hidden>
+<script src="/g/gallery.js" defer></script>
+</body>
+</html>
