@@ -132,7 +132,7 @@ E.Store = (() => {
 
 /* ---------- state ---------- */
 const S = E.S = { canWrite:true, events:[], evLoaded:false, cur:null, tab:'overview', sub:{plan:'venue', budget:'collect'}, filter:'all', query:'', doneOpen:false,
-  people:[], expenses:[], payments:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null };
+  people:[], expenses:[], payments:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null, home:{} };
 E.curEv = () => S.events.find(e => e.id === S.cur);
 E.evPath = (sub, id) => `events/${S.cur}/${sub}` + (id ? `/${id}` : '');
 

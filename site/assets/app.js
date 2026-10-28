@@ -43,6 +43,7 @@ function afterRender(ev){
   const host = $('#vz-host');
   if(host && ev) E.venue.attach(host, ev.id, S.venue.find(v => v.id === 'main'));
   if(S.cur && S.tab === 'photos' && ev) E.photos.after(ev);
+  if(!S.cur && !S.gate){ ensureHomeData(); E.widgets.after(); }
 }
 /* sync status: a chip on home and in the sidebar, an icon in the event top bar only when something needs attention */
 function chipInner(){
@@ -104,14 +105,65 @@ const byDate = (a, b) => { if(!a.date && !b.date) return (a.createdAt||0) - (b.c
 const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 function homeView(){
   const dateLine = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'});
-  const head = sub => `<section class="hello"><p class="eyebrow gold">${dateLine}</p><h1 class="display">${greeting()},<br><em>Ekta</em></h1><p class="sub">${sub}</p></section>`;
-  if(Store.mode === 'loading' || !S.evLoaded) return head('Opening your events…') + `<div class="ev-list"><div class="invite plain skel"></div><div class="invite plain skel"></div></div>`;
+  const head = sub => `<section class="hello h-head"><p class="eyebrow gold">${dateLine}</p><h1 class="display">${E.widgets.phrase('Ekta', S.events)}</h1><p class="sub">${sub}</p></section>`;
+  const widgets = `<div class="h-widgets">${E.widgets.clockHtml()}${E.widgets.weatherHtml()}</div>`;
+  if(Store.mode === 'loading' || !S.evLoaded) return `<div class="home">${head('Opening your events…')}${widgets}<div class="h-feature"><div class="invite plain skel"></div></div></div>`;
   const evs = [...S.events].sort(byDate);
   const up = evs.filter(e => !e.date || E.daysUntil(e.date) >= 0), past = evs.filter(e => e.date && E.daysUntil(e.date) < 0).reverse();
-  const next = up.find(e => e.date);
-  const sub = up.length ? `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works${next ? ` · ${esc(next.name)} ${(n => n === 0 ? 'is today' : n === 1 ? 'is tomorrow' : `in ${n} days`)(E.daysUntil(next.date))}` : ''}.` : 'Nothing on the calendar yet.';
-  return head(sub) + localOfferCard() + (up.length ? `<div class="ev-list">${up.map(invite).join('')}${S.canWrite ? newTile() : ''}</div>` : homeEmpty())
-    + (past.length ? `<div class="section-label"><span class="eyebrow">Past events</span></div><div class="ev-list">${past.map(invite).join('')}</div>` : '');
+  const next = up.find(e => e.date) || up[0];
+  const sub = up.length ? `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works${next && next.date ? ` · ${esc(next.name)} ${(n => n === 0 ? 'is today' : n === 1 ? 'is tomorrow' : `in ${n} days`)(E.daysUntil(next.date))}` : ''}.` : 'Nothing on the calendar yet.';
+  const rest = up.filter(e => e !== next);
+  return `<div class="home">
+    <div class="h-main">${head(sub)}${localOfferCard()}
+      ${next ? `<div class="h-feature">${featureCard(next)}</div>` : `<div class="h-feature">${homeEmpty()}</div>`}
+      ${up.length ? `<div class="h-more">${rest.length ? `<div class="section-label"><span class="eyebrow">Also coming up</span></div>` : ''}<div class="ev-list">${rest.map(invite).join('')}${S.canWrite ? newTile() : ''}</div></div>` : ''}
+      ${past.length ? `<div class="h-past"><div class="section-label"><span class="eyebrow">Past events</span></div><div class="ev-list">${past.map(invite).join('')}</div></div>` : ''}
+    </div>
+    <aside class="h-side">${widgets}${up.length ? weekCard(up) : ''}</aside>
+  </div>`;
+}
+/* the next celebration, large, with its live numbers and the forecast for the evening */
+function featureCard(e){
+  const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), stock = E.stockOf(e), photo = E.hasPhoto(e), d = S.home[e.id] || {};
+  const when = e.date ? new Date(e.date + 'T00:00').toLocaleDateString('en-IN', innerWidth < 640 ? {weekday:'short', day:'numeric', month:'short'} : {weekday:'long', day:'numeric', month:'long'}) : 'Date to be set';
+  const loaded = d.people && d.expenses && d.tasks;
+  const st = loaded ? E.stats(e, d.people, d.expenses, d.payments || []) : null;
+  const done = loaded ? d.tasks.filter(x => x.done).length : 0;
+  const fc = E.widgets.eventForecast(e);
+  const stat = (v, l) => `<div><b>${v}</b><small>${l}</small></div>`;
+  return `<button class="invite stock feature stock-${stock}${photo ? ' has-photo' : ''}" data-act="open-event" data-id="${esc(e.id)}">
+    ${photo ? E.coverHtml(e, 'inv-photo') : ''}<span class="foil-frame" aria-hidden="true"></span>
+    ${!photo && stock === 'maroon' ? E.toran() : ''}
+    <p class="smallcaps">Up next &nbsp;·&nbsp; ${esc(t.label)} &nbsp;·&nbsp; ${esc(when)}</p>
+    <h3>${esc(e.name)}</h3>
+    ${E.divider(150)}
+    <p class="feat-meta">${[E.fmtTime(e.time), e.venue].filter(Boolean).map(esc).join(' · ') || 'Add the time and venue'}</p>
+    ${n != null && n >= 0 ? `<div class="feat-cd"><b class="foil-num${n === 0 ? ' word' : ''}">${n === 0 ? 'Today' : n}</b>${n ? `<small>${n === 1 ? 'day to go' : 'days to go'}</small>` : ''}</div>` : ''}
+    <div class="feat-stats">${st ? stat(st.headcount, 'coming') + (st.contri ? stat(inr(st.collected), st.target ? `of ${inr(st.target)}` : 'collected') : stat(inr(st.spent), 'spent')) + stat(`${done}/${d.tasks.length}`, 'tasks done') : stat('·', 'coming') + stat('·', 'collected') + stat('·', 'tasks done')}</div>
+    ${fc ? `<p class="feat-wx">${E.widgets.wx(fc.sym, 22)}<span>Forecast for the evening: <b>${fc.temp}°</b>, ${esc(fc.text)}${fc.rain > 0.2 ? ' · keep a backup for rain' : ''}</span></p>` : ''}
+  </button>`;
+}
+/* this week across every upcoming event: tasks due, and money still out */
+const addDays = (iso, n) => { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function weekCard(up){
+  const today = E.today(), lim = addDays(today, 7), items = [];
+  up.slice(0, 6).forEach(e => (S.home[e.id]?.tasks || []).filter(t => !t.done && t.due && t.due <= lim).forEach(t => items.push({e, t})));
+  items.sort((a, b) => a.t.due < b.t.due ? -1 : a.t.due > b.t.due ? 1 : 0);
+  const label = due => due < today ? 'Overdue' : due === today ? 'Today' : due === addDays(today, 1) ? 'Tomorrow' : new Date(due + 'T00:00').toLocaleDateString('en-IN', {weekday:'short', day:'numeric'});
+  const money = up.slice(0, 1).map(e => { const d = S.home[e.id] || {}; if(!d.people || !d.expenses) return ''; const st = E.stats(e, d.people, d.expenses, d.payments || []); return st.contri && st.pending ? `<button class="wk-row money" data-act="open-due" data-id="${esc(e.id)}"><span class="wk-date">${icon('payments', false, 'sm')}</span><span class="grow"><b>${inr(st.pending)} still to collect</b><small>${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} · ${esc(e.name)}</small></span>${icon('chevron_right')}</button>` : ''; }).join('');
+  const rows = items.slice(0, 6).map(({e, t}) => `<button class="wk-row" data-act="open-tasks" data-id="${esc(e.id)}"><span class="wk-date${t.due < today ? ' late' : ''}">${label(t.due)}</span><span class="grow"><b>${esc(t.text)}</b><small>${esc(e.name)}</small></span>${icon('chevron_right')}</button>`).join('');
+  return `<section class="card stock week"><p class="smallcaps menu-h">This week</p>${money}${rows || (money ? '' : `<p class="wk-empty">A clear week. Give tasks a due date and they’ll gather here.</p>`)}${items.length > 6 ? `<p class="wk-more">${items.length - 6} more on the checklists</p>` : ''}</section>`;
+}
+/* the next few events' guests, money and tasks, for the home screen */
+let homeUnsubs = [], homeFor = '';
+function stopHomeData(){ homeUnsubs.forEach(u => { try{ u(); }catch(e){} }); homeUnsubs = []; homeFor = ''; }
+function ensureHomeData(){
+  if(S.cur || S.gate || !S.evLoaded || Store.mode === 'loading') return;
+  const up = [...S.events].sort(byDate).filter(e => !e.date || E.daysUntil(e.date) >= 0).slice(0, 6), key = up.map(e => e.id).join();
+  if(key === homeFor) return;
+  stopHomeData(); homeFor = key;
+  const first = up.find(e => e.date) || up[0];
+  up.forEach(e => (e === first ? ['people', 'payments', 'expenses', 'tasks'] : ['tasks']).forEach(k => homeUnsubs.push(Store.subscribe(`events/${e.id}/${k}`, rows => { (S.home[e.id] ||= {})[k] = rows; if(!S.cur) render(); }, onSubErr))));
 }
 function invite(e){
   const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), stock = E.stockOf(e), photo = E.hasPhoto(e);
@@ -889,7 +941,7 @@ function signOutSheet(){
 }
 let evUnsub = null;
 function resetData(){
-  stopEventSubs(); E.venue.reset(); E.photos.reset();
+  stopEventSubs(); stopHomeData(); S.home = {}; E.venue.reset(); E.photos.reset();
   if(evUnsub){ try{ evUnsub(); }catch(e){} evUnsub = null; }
   Object.assign(S, {cur:null, events:[], evLoaded:false, loaded:{}, localOffer:false}); SUBCOLS.forEach(k => { S[k] = []; });
   Store.reset();
@@ -923,7 +975,7 @@ async function migrateReceipts(){
 }
 function openEvent(id, tab){
   if(S.cur !== id || !subUnsubs.length){
-    stopEventSubs(); E.venue.reset(); E.photos.reset(); E.run.reset(); S.cq = '';
+    stopEventSubs(); stopHomeData(); E.venue.reset(); E.photos.reset(); E.run.reset(); S.cq = '';
     S.cur = id; SUBCOLS.forEach(k => { S[k] = []; }); S.loaded = {}; S.filter = 'all'; S.query = ''; migrated = false;
     SUBCOLS.forEach(k => subUnsubs.push(Store.subscribe(`events/${id}/${k}`, rows => { if(S.cur !== id) return; S[k] = rows; S.loaded[k] = true; migrateReceipts(); render(); E.refreshSheet(); E.venue.refreshHud(); }, onSubErr)));
   }
@@ -942,6 +994,8 @@ document.addEventListener('click', e => {
     case 'home': goHome(); break;
     case 'theme': { const order = ['auto', 'light', 'dark'], nx = order[(order.indexOf(E.getTheme()) + 1) % 3]; E.setTheme(nx); toast(nx === 'auto' ? 'Theme follows your device' : nx === 'light' ? 'Ivory theme' : 'Noir theme', themeIcon()); E.render(); break; }
     case 'open-event': openEvent(id, 'overview'); break;
+    case 'open-tasks': S.sub.plan = 'tasks'; openEvent(id, 'plan'); break;
+    case 'open-due': openEvent(id, 'guests'); S.filter = 'due'; E.render(); break;
     case 'new-event': if(S.canWrite) eventSheet(null, t.dataset.type); break;
     case 'edit-event': if(ev && S.canWrite) eventSheet(ev); break;
     case 'edit-cover': if(ev && S.canWrite) coverSheet(ev); break;
