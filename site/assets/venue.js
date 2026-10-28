@@ -247,12 +247,29 @@ const LAYOUTS = {
 
 /* ---------- editor ---------- */
 let ed = null;   // the single live editor
+/* phones: the plan is a preview that the page scrolls past; editing happens full screen */
+const phone = () => matchMedia('(max-width: 759px)').matches;
+function enterFull(st){
+  if(st.el.classList.contains('full')) return;
+  st.el.classList.remove('preview'); st.el.classList.add('full'); document.body.classList.add('vz-full-open');
+  try{ history.pushState({vzFull:1}, ''); }catch(e){}
+  requestAnimationFrame(() => requestAnimationFrame(() => fit(st)));
+}
+function exitFull(st, fromHistory){
+  if(!st.el.classList.contains('full')) return;
+  st.el.classList.remove('full'); if(phone()) st.el.classList.add('preview'); document.body.classList.remove('vz-full-open');
+  select(st, null);
+  if(!fromHistory){ try{ if(history.state && history.state.vzFull) history.back(); }catch(e){} }
+  requestAnimationFrame(() => requestAnimationFrame(() => fit(st)));
+}
+addEventListener('popstate', () => { if(ed && ed.el.classList.contains('full')) exitFull(ed, true); });
 function create(evId){
   const el = document.createElement('div');
   el.className = 'vz'; el.tabIndex = 0; el.setAttribute('aria-label', 'Venue layout editor');
   el.innerHTML = `<svg class="canvas" xmlns="http://www.w3.org/2000/svg"><g class="vz-defs"></g><g class="vz-world"><g class="vz-ground"></g><g class="vz-items"></g><g class="vz-labels"></g><g class="vz-sel"></g></g></svg>
     <div class="vz-over">
-      <div class="vz-tl"><button class="vz-title" data-v="settings" type="button">${icon('map')}<span class="vz-name"></span></button><div class="vz-stats"></div></div>
+      <div class="vz-tl"><div class="vz-tl-row"><button class="btn sm vz-done" data-v="close" type="button">${icon('check')}Done</button><button class="vz-title" data-v="settings" type="button">${icon('map')}<span class="vz-name"></span></button></div><div class="vz-stats"></div></div>
+      <button class="btn vz-open" data-v="open" type="button">${icon('open_in_full')}Edit layout</button>
       <div class="vz-tr">
         <button class="icon-btn" data-v="undo" aria-label="Undo" type="button">${icon('undo')}</button>
         <button class="icon-btn" data-v="redo" aria-label="Redo" type="button">${icon('redo')}</button>
@@ -265,6 +282,7 @@ function create(evId){
       <div class="vz-insp" hidden></div>
     </div>`;
   const svg = $('svg', el);
+  if(phone()) el.classList.add('preview');
   const st = {
     el, svg, evId, world:$('.vz-world', svg), gGround:$('.vz-ground', svg), gItems:$('.vz-items', svg), gLabels:$('.vz-labels', svg), gSel:$('.vz-sel', svg),
     plan:null, view:{z:20, tx:0, ty:0}, sel:null, snap:true, undo:[], redo:[], ptrs:new Map(), mode:null, drag:null, fitted:false, lastSaved:0, saveT:null, dark:E.isDark()
@@ -526,7 +544,9 @@ function bind(st){
     else if(v === '3d') E.venue3d ? E.venue3d.open(st.plan, E.curEv()) : null;
     else if(v === 'deselect') select(st, null); else if(v === 'rotl') rotateSel(st, -15); else if(v === 'rotr') rotateSel(st, 15);
     else if(v === 'dup') dupSel(st); else if(v === 'del') removeSel(st); else if(v === 'edit') itemSheet(st);
+    else if(v === 'open') enterFull(st); else if(v === 'close') exitFull(st);
   });
+  st.el.addEventListener('click', e => { if(st.el.classList.contains('preview') && !e.target.closest('[data-v]')) enterFull(st); });
   new ResizeObserver(() => { if(st.plan && st.el.isConnected){ if(!st.fitted) fit(st); else applyView(st); } }).observe(st.el);
 }
 
@@ -646,7 +666,7 @@ E.venue = {
     requestAnimationFrame(() => { if(!ed.fitted) fit(ed); });
     return ed;
   },
-  reset(){ ed = null; },
+  reset(){ if(ed && ed.el.classList.contains('full')) exitFull(ed); document.body.classList.remove('vz-full-open'); ed = null; },
   busy(){ return !!(ed && (ed.drag || ed.ptrs.size)); },
   tables(){ const src = ed && ed.evId === S.cur ? ed.plan.items : ((S.venue.find(v => v.id === 'main') || {}).items || []); return src.filter(it => CAT[it.type]?.table).map(it => ({id:it.id, label:labelOf(it) || CAT[it.type].label, seats:seatsOf(it)})).sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric:true})); },
   seatCount(doc){ return ((doc && doc.items) || []).reduce((a, it) => a + seatsOf(it), 0); },

@@ -24,7 +24,7 @@ E.render = function render(){
   let html;
   if(S.gate) html = gateView();
   else if(!S.cur) html = homeView();
-  else if(!ev) html = `<div class="invite glass skel"></div>`;
+  else if(!ev) html = `<div class="invite plain skel"></div>`;
   else html = ({overview:overviewView, guests:guestsView, plan:planView, budget:budgetView, photos:E.photos.view}[S.tab] || overviewView)(ev);
   const key = S.gate ? 'gate:' + S.gate : (S.cur || 'home') + ':' + S.tab + ':' + (S.sub[S.tab] || '');
   swapView(html, key !== lastKey);
@@ -105,7 +105,7 @@ const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good e
 function homeView(){
   const dateLine = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'});
   const head = sub => `<section class="hello"><p class="eyebrow gold">${dateLine}</p><h1 class="display">${greeting()},<br><em>Ekta</em></h1><p class="sub">${sub}</p></section>`;
-  if(Store.mode === 'loading' || !S.evLoaded) return head('Opening your events…') + `<div class="ev-list"><div class="invite glass skel"></div><div class="invite glass skel"></div></div>`;
+  if(Store.mode === 'loading' || !S.evLoaded) return head('Opening your events…') + `<div class="ev-list"><div class="invite plain skel"></div><div class="invite plain skel"></div></div>`;
   const evs = [...S.events].sort(byDate);
   const up = evs.filter(e => !e.date || E.daysUntil(e.date) >= 0), past = evs.filter(e => e.date && E.daysUntil(e.date) < 0).reverse();
   const next = up.find(e => e.date);
@@ -116,20 +116,22 @@ function homeView(){
 function invite(e){
   const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date);
   const meta = [E.fmtTime(e.time), e.venue].filter(Boolean).map(esc).join(' · ');
-  return `<button class="invite glass foil" data-act="open-event" data-id="${esc(e.id)}">
-    <div class="invite-top"><span class="type-chip">${icon(t.icon)}${t.label}</span>${n == null ? '' : n === 0 ? `<div class="count"><b style="font-size:40px;font-style:italic">Today</b></div>` : n > 0 ? `<div class="count"><b>${n}</b><span>${n === 1 ? 'day to go' : 'days to go'}</span></div>` : ''}</div>
-    <h3>${esc(e.name)}</h3>
-    <div class="when">${e.date ? `<b>${E.fmtLong(e.date).replace(/, \d{4}$/, '')}</b>` : `<b>Date to be set</b>`}${meta ? `<span class="muted small">${meta}</span>` : ''}</div>
+  return `<button class="invite plain" data-act="open-event" data-id="${esc(e.id)}">
+    ${E.coverHtml(e)}
+    <div class="invite-over"><span class="type-chip on-cover">${icon(t.icon)}${t.label}</span>${n == null ? '' : n === 0 ? `<div class="count on-cover"><b class="word">Today</b></div>` : n > 0 ? `<div class="count on-cover"><b>${n}</b><span>${n === 1 ? 'day to go' : 'days to go'}</span></div>` : `<div class="count on-cover"><span>${E.fmtShort(e.date)}</span></div>`}</div>
+    <div class="invite-body"><h3>${esc(e.name)}</h3>
+    <div class="when">${e.date ? `<b>${E.fmtLong(e.date).replace(/, \d{4}$/, '')}</b>` : `<b>Date to be set</b>`}${meta ? `<span class="muted small">${meta}</span>` : ''}</div></div>
     ${strip(e)}</button>`;
 }
-const newTile = () => `<button class="invite glass" data-act="new-event" style="align-items:center;justify-content:center;text-align:center;border-style:dashed;border-color:var(--gold-line)"><span class="empty-ic">${icon('add')}</span><h3 style="font-size:32px">Plan a new event</h3><span class="muted small">Weddings, birthdays, Diwali, corporate…</span></button>`;
+const newTile = () => `<button class="invite plain new" data-act="new-event" style="align-items:center;justify-content:center;text-align:center;border-style:dashed;border-color:var(--gold-line)"><span class="empty-ic">${icon('add')}</span><h3 style="font-size:32px">Plan a new event</h3><span class="muted small">Weddings, birthdays, Diwali, corporate…</span></button>`;
 function homeEmpty(){
-  if(!S.canWrite) return `<section class="empty glass"><span class="empty-ic">${icon('celebration')}</span><h3>No events yet</h3><p>Events appear here once they’re added.</p></section>`;
-  return `<section class="empty glass foil"><span class="empty-ic">${icon('celebration')}</span><h3>Plan your first event</h3><p>Pick a type to start with a checklist, budget categories and a theme palette.</p>
+  if(!S.canWrite) return `<section class="empty plain"><span class="empty-ic">${icon('celebration')}</span><h3>No events yet</h3><p>Events appear here once they’re added.</p></section>`;
+  return `<section class="empty plain foil"><span class="empty-ic">${icon('celebration')}</span><h3>Plan your first event</h3><p>Pick a type to start with a checklist, budget categories and a theme palette.</p>
     <div class="chips">${Object.entries(E.TYPES).map(([k, t]) => `<button class="chip" data-act="new-event" data-type="${k}">${icon(t.icon)}${t.label}</button>`).join('')}</div></section>`;
 }
 
-/* ---------- overview ---------- */
+/* ---------- overview: a compact summary beside large venue and mood previews ---------- */
+const sumRow = (act, ic, label, value, sub, extra = '') => `<button class="sum-row" ${act}><span class="sum-ic">${icon(ic)}</span><span class="sum-main"><span class="sum-l">${label}</span><b>${value}</b>${sub ? `<small>${sub}</small>` : ''}${extra}</span>${icon('chevron_right')}</button>`;
 function overviewView(ev){
   const t = E.TYPES[ev.type] || E.TYPES.party, n = E.daysUntil(ev.date), st = E.stats(ev, S.people, S.expenses);
   let cd = '';
@@ -142,54 +144,41 @@ function overviewView(ev){
     `<li>${icon('location_on')}${ev.venue ? `<span>${esc(ev.venue)}</span>` : `<span class="add">Add a venue</span>`}</li>`,
     ev.theme?.dress ? `<li>${icon('styler')}<span>${esc(ev.theme.dress)}</span></li>` : ''
   ].join('');
-  const plan = S.venue.find(v => v.id === 'main');
-  const seats = E.venue.seatCount(plan);
+  const plan = S.venue.find(v => v.id === 'main'), seats = E.venue.seatCount(plan);
   const open = S.tasks.filter(x => !x.done).sort(taskSort), doneN = S.tasks.length - open.length;
-  const imgs = S.mood.filter(m => m.kind === 'image').sort((a, b) => (b.createdAt||0) - (a.createdAt||0)).slice(0, 4);
-  const pal = ev.theme?.palette || [];
-  const hasContri = st.contri && st.sharers.length > 0, p = hasContri ? (st.target ? st.collected / st.target : 0) : (st.budget ? st.spent / st.budget : 0);
-  const totalG = st.rows.length, rsvpP = totalG ? st.rsvp.going / totalG : 0;
-  return `<section class="hero glass foil">
-      <div class="card-h"><span class="type-chip">${icon(t.icon)}${t.label}</span>${S.canWrite ? `<button class="btn text sm" data-act="edit-event">${icon('edit')}Edit</button>` : ''}</div>
+  const imgs = S.mood.filter(m => m.kind === 'image').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
+  const notes = S.mood.filter(m => m.kind === 'note').length, pal = ev.theme?.palette || [];
+  const total = st.rows.length, pct = k => total ? st.rsvp[k] / total * 100 : 0;
+  const runNext = E.run.nowNext(), nextRun = runNext.now || runNext.next;
+  const hero = `<section class="ov-hero plain">
+      ${E.coverHtml(ev, 'big')}
+      <div class="ov-hero-over"><span class="type-chip on-cover">${icon(t.icon)}${t.label}</span><span class="grow"></span>${S.canWrite ? `<button class="btn sm cover-btn" data-act="edit-cover">${icon('photo_camera')}Cover</button><button class="btn sm cover-btn" data-act="edit-event">${icon('edit')}Edit</button>` : ''}</div>
       <div class="hero-body"><div><h1 class="ev-title">${esc(ev.name)}</h1><ul class="meta">${meta}</ul></div>${cd ? `<div class="countdown">${cd}</div>` : ''}</div>
       ${strip(ev)}
-    </section>
-    ${n === 0 ? E.run.nowCard(ev, true) : ''}
-    ${attentionCard(ev, st, n)}
-    <div class="tiles">
-      <button class="card glass card-btn" data-act="tab" data-tab="guests">
-        <div class="card-h"><span class="eyebrow">${icon('groups')}Guests</span>${icon('chevron_right')}</div>
-        <div class="tile-big"><div class="ring-wrap">${E.ring(rsvpP, 72, 6, rsvpP >= 1 ? 'good' : '')}<b>${st.rsvp.going}</b></div><div><div class="big-amt">${st.headcount} coming</div><div class="muted small">${totalG ? `${totalG} invited · ${st.rsvp.maybe} maybe · ${st.rsvp.invited} not replied` : 'No guests added yet'}</div></div></div>
-        ${st.contri && st.sharers.length ? `<div class="kv"><div><span>Contri paid in full</span><b>${st.paidCount} of ${st.sharers.length}</b></div></div>` : ''}
-      </button>
-      <button class="card glass card-btn" data-act="sub" data-tab="plan" data-sub="venue">
-        <div class="card-h"><span class="eyebrow">${icon('map')}Venue layout</span>${icon('chevron_right')}</div>
-        ${plan && plan.items && plan.items.length ? `<div class="mini-plan">${E.venue.staticSvg(plan, {pad:0.5, wall:1.5})}</div><div class="muted small">${esc(plan.name || 'Venue')} · ${plan.items.length} items · ${seats} seats</div>`
-          : `<div class="mini-plan" style="display:grid;place-items:center;color:var(--ink-3)"><span class="small">${icon('architecture')} Map the venue: tables, bar, stage, lights</span></div>`}
-      </button>
-      <button class="card glass card-btn" data-act="tab" data-tab="budget">
-        <div class="card-h"><span class="eyebrow">${icon('account_balance_wallet')}${hasContri ? 'Contri' : 'Budget'}</span>${icon('chevron_right')}</div>
-        <div class="tile-big"><div class="ring-wrap">${E.ring(p, 72, 6, p >= 1 && hasContri ? 'good' : '')}<b>${Math.round(Math.min(p, 9.99) * 100)}%</b></div><div><div class="big-amt">${inr(hasContri ? st.collected : st.spent)}</div><div class="muted small">${hasContri ? (st.target ? `collected of ${inr(st.target)}` : 'collected so far') : (st.budget ? `spent of ${inr(st.budget)}` : 'spent so far')}</div></div></div>
-        <div class="kv"><div><span>Spent</span><b>${inr(st.spent)}</b></div>${hasContri ? `<div><span>Still due</span><b>${inr(st.pending)}</b></div>` : ''}</div>
-      </button>
-      <button class="card glass card-btn" data-act="sub" data-tab="plan" data-sub="mood">
-        <div class="card-h"><span class="eyebrow">${icon('palette')}Theme & mood</span>${icon('chevron_right')}</div>
-        <div class="h2" style="font-style:italic;font-weight:500;font-size:32px">${esc(ev.theme?.name || 'Pick a theme')}</div>
-        ${pal.length ? `<div class="swatches">${pal.slice(0, 6).map(c => `<div class="swatch"><i style="--c:${okHex(c.hex)}"></i><span>${esc(c.name || '')}</span></div>`).join('')}</div>` : ''}
-        ${imgs.length ? `<div class="thumbs">${imgs.map(m => `<img src="${esc(E.imgSrc(m))}" alt="${esc(m.caption || 'Mood board photo')}" loading="lazy">`).join('')}</div>` : ''}
-      </button>
-      <button class="card glass card-btn" data-act="sub" data-tab="plan" data-sub="tasks">
-        <div class="card-h"><span class="eyebrow">${icon('checklist')}Checklist</span>${icon('chevron_right')}</div>
-        <div class="tile-big"><div class="ring-wrap">${E.ring(S.tasks.length ? doneN / S.tasks.length : 0, 72, 6, S.tasks.length && !open.length ? 'good' : '')}<b>${doneN}/${S.tasks.length}</b></div><div><div class="big-amt">${open.length ? `${open.length} to do` : S.tasks.length ? 'All done' : 'No tasks'}</div><div class="muted small">${doneN} done</div></div></div>
-        ${open.length ? `<div class="kv">${open.slice(0, 3).map(x => `<div><span style="color:var(--ink)">${esc(x.text)}</span>${x.due ? `<b class="small">${E.fmtShort(x.due)}</b>` : ''}</div>`).join('')}</div>` : ''}
-      </button>
-      <button class="card glass card-btn" data-act="tab" data-tab="photos">
-        <div class="card-h"><span class="eyebrow">${icon('photo_library')}Photo wall</span>${icon('chevron_right')}</div>
-        ${E.photos.tile(ev)}
-      </button>
-    </div>`;
+    </section>`;
+  const money = st.contri
+    ? sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Contri', `${inr(st.collected)} collected`, `${st.target ? `of ${inr(st.target)}` : 'set a per-person amount'}${st.pending ? ` · <span class="bad">${inr(st.pending)} still due</span>` : st.target ? ' · all paid' : ''}`, st.target ? E.lin(st.collected / st.target, 'thin' + (st.pending ? '' : ' good')) : '')
+    : sumRow('data-act="tab" data-tab="budget"', 'account_balance_wallet', 'Budget', `${inr(st.spent)} spent`, st.budget ? `of ${inr(st.budget)} planned` : `${S.expenses.length} expenses logged`, st.budget ? E.lin(st.spent / st.budget, 'thin' + (st.spent > st.budget ? ' bad' : '')) : '');
+  const summary = `<section class="card plain sum"><div class="card-h"><span class="eyebrow">At a glance</span></div><div class="sum-list">
+      ${sumRow('data-act="tab" data-tab="guests"', 'groups', 'Guests', `${st.headcount} coming`, total ? `${total} invited · ${st.rsvp.maybe} maybe · ${st.rsvp.invited} not replied` : 'No guests added yet', total ? `<span class="rsvp-bar thin">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</span>` : '')}
+      ${money}
+      ${sumRow('data-act="sub" data-tab="plan" data-sub="run"', 'schedule', 'Run sheet', S.run.length ? `${S.run.length} ${S.run.length === 1 ? 'moment' : 'moments'} planned` : 'Not started', nextRun ? `${runNext.now ? 'Now' : 'First up'} · ${nextRun.time ? E.fmtTime(nextRun.time) : ''} ${esc(nextRun.title)}` : 'Plan the day hour by hour')}
+      ${sumRow('data-act="sub" data-tab="plan" data-sub="tasks"', 'checklist', 'Checklist', S.tasks.length ? `${doneN} of ${S.tasks.length} done` : 'No tasks yet', open.length ? `Next: ${esc(open[0].text)}` : S.tasks.length ? 'Everything is ticked off' : '')}
+      ${sumRow('data-act="tab" data-tab="photos"', 'photo_library', 'Photo wall', ev.gallery ? 'QR ready to share' : 'Not created yet', ev.gallery ? 'Guests scan it to add their photos' : 'Make the QR card before the party')}
+    </div></section>`;
+  const venue = `<button class="card plain card-btn ov-venue" data-act="sub" data-tab="plan" data-sub="venue">
+      <div class="card-h"><span class="eyebrow">${icon('map')}Venue layout</span>${icon('chevron_right')}</div>
+      ${plan && plan.items && plan.items.length ? `<div class="mini-plan big">${E.venue.staticSvg(plan, {pad:0.5, wall:1.5})}</div><div class="ov-cap"><b>${esc(plan.name || 'Venue')}</b><span>${plan.items.length} items · ${seats} seats${st.headcount ? ` for ${st.headcount} coming` : ''}</span></div>`
+        : `<div class="mini-plan big empty-plan"><span>${icon('architecture')}</span><b>Map the venue</b><small>Round tables, bar, stage, lights, bonfire. Start from a ready layout.</small></div>`}
+    </button>`;
+  const mood = `<button class="card plain card-btn ov-mood" data-act="sub" data-tab="plan" data-sub="mood">
+      <div class="card-h"><span class="eyebrow">${icon('palette')}Theme & mood</span>${icon('chevron_right')}</div>
+      <div class="theme-name sm">${esc(ev.theme?.name || 'Pick a theme')}</div>
+      ${pal.length ? `<div class="swatches">${pal.slice(0, 6).map(c => `<div class="swatch"><i style="--c:${okHex(c.hex)}"></i><span>${esc(c.name || '')}</span></div>`).join('')}</div>` : ''}
+      ${imgs.length ? `<div class="ov-thumbs">${imgs.map(m => `<img src="${esc(E.imgSrc(m))}" alt="${esc(m.caption || 'Mood board photo')}" loading="lazy">`).join('')}</div>` : `<p class="muted small">${notes ? `${notes} ${notes === 1 ? 'note' : 'notes'} on the board. ` : ''}Add décor references, outfits and table settings to the mood board.</p>`}
+    </button>`;
+  return hero + (n === 0 ? E.run.nowCard(ev, true) : '') + `<div class="ov-grid"><div class="ov-col">${attentionCard(ev, st, n)}${summary}</div><div class="ov-col">${venue}${mood}</div></div>`;
 }
-
 /* ---------- guests ---------- */
 const RSVP = {going:['Coming','good'], maybe:['Maybe','warn'], no:['Not coming','muted'], invited:['Not replied','']};
 const DIETS = ['Veg', 'Jain', 'Non-veg', 'Vegan'];
@@ -240,7 +229,7 @@ function guestsView(ev){
     <div class="stat-row"><div><span>Invited</span><b>${total}</b><small>${st.rows.reduce((a, r) => a + r.plusOnes, 0)} plus-ones</small></div><div><span>Headcount</span><b class="good">${st.headcount}</b><small>coming incl. plus-ones</small></div><div><span>Maybe</span><b class="gold">${st.rsvp.maybe}</b><small>${st.rsvp.invited} not replied</small></div>
       ${st.contri ? `<button class="stat-btn" data-act="filter" data-f="due"><span>Contri</span><b class="${st.pending ? 'bad' : 'good'}">${st.paidCount}/${st.sharers.length}</b><small>${st.pending ? `${inr(st.pending)} still due` : 'all paid'}</small></button>` : `<div><span>Not coming</span><b>${st.rsvp.no}</b><small>declined</small></div>`}</div>
     ${total ? `<div class="card plain" style="gap:10px;padding:16px 18px"><div class="rsvp-bar">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</div><div class="rsvp-legend">${['going','maybe','invited','no'].map(k => `<span><i class="bg-${k}"></i>${RSVP[k][0]} ${st.rsvp[k]}</span>`).join('')}</div></div>` : ''}`;
-  if(!total) return head + `<section class="empty glass"><span class="empty-ic">${icon('groups')}</span><h3>Start the guest list</h3><p>Paste names in one go, then track who’s coming${st.contri ? ' and who has paid their contri' : ' and their food preferences'}.</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${'contacts' in navigator && 'ContactsManager' in window ? `<button class="btn ghost" data-act="pick-contacts">${icon('contacts')}From contacts</button>` : ''}</div>` : ''}</section>`;
+  if(!total) return head + `<section class="empty plain"><span class="empty-ic">${icon('groups')}</span><h3>Start the guest list</h3><p>Paste names in one go, then track who’s coming${st.contri ? ' and who has paid their contri' : ' and their food preferences'}.</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${'contacts' in navigator && 'ContactsManager' in window ? `<button class="btn ghost" data-act="pick-contacts">${icon('contacts')}From contacts</button>` : ''}</div>` : ''}</section>`;
   return head + `<div class="guest-tools"><label class="search">${icon('search')}<input class="input" id="g-search" type="search" placeholder="Search guests" value="${esc(S.query)}" aria-label="Search guests"></label>
       <div class="chips wrap-m">${filters.map(([k, l, c]) => `<button class="chip" data-act="filter" data-f="${k}" aria-pressed="${f === k}">${l} <small>${c}</small></button>`).join('')}</div></div>
     <section class="list-card plain">${f === 'due' && list.length ? `<div class="lc-head"><div><b>${inr(list.reduce((a, r) => a + r.due, 0))} still due</b><br><span>${list.length} ${list.length === 1 ? 'person' : 'people'} · tap ${icon('currency_rupee', false, 'xs')} to record a payment</span></div>${S.canWrite ? `<button class="btn tonal sm" data-act="group-msg">${icon('chat')}Remind all</button>` : ''}</div>` : ''}${list.length ? list.map(r => {
@@ -345,7 +334,7 @@ function bindPayForm(b, pid, done){
     const ok = await save(Store.set(E.evPath('payments', 'r' + uid()), {guestId:pid, amount, mode, date:val(b, '#pp-date') || E.today(), ref:val(b, '#pp-ref'), createdAt:Date.now()}));
     btn.disabled = false; if(!ok) return;
     const left = Math.max(0, before.due - amount);
-    E.vibrate(12);
+    E.vibrate(left || !before.expected ? 12 : [12, 40, 18]); E.celebrate(btn, before.expected > 0 && !left);
     toast(`${inr(amount)} from ${first(before.name)} · ${before.expected ? (left ? `${inr(left)} still due` : 'paid in full') : 'recorded'}`, 'payments');
     $('#pp-ref', b).value = ''; done && done(left);
   });
@@ -484,7 +473,7 @@ function budgetView(ev){
   const p = hasContri ? (st.target ? st.collected / st.target : 0) : (st.budget ? st.spent / st.budget : 0);
   const head = `<section class="vhead">${eyebrow(ev)}<div class="vhead-row"><h1 class="h1">Money</h1>
       <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-expense">${icon('add')}Expense</button><button class="btn ghost" data-act="edit-money">${icon('tune')}${st.contri ? (+ev.perHead ? `${inr(ev.perHead)} / person` : 'Contri settings') : 'Budget'}</button>` : ''}</div></div></section>
-    <section class="money-hero glass foil">
+    <section class="money-hero plain foil">
       <span class="eyebrow">${hasContri ? 'Contri collected' : 'Spent so far'}</span>
       <div class="money-big"><b>${inr(hasContri ? st.collected : st.spent)}</b><span>${hasContri ? (st.target ? `of ${inr(st.target)} target` : 'set a per-person amount to see the target') : (st.budget ? `of ${inr(st.budget)} budget` : 'no budget set yet')}</span></div>
       ${E.lin(p, p >= 1 && hasContri ? 'good' : (!hasContri && p > 1 ? 'bad' : ''))}
@@ -499,7 +488,7 @@ function budgetView(ev){
   return head + segBar('budget', subs) + body;
 }
 function collectBlock(ev, st){
-  if(!st.sharers.length) return `<section class="empty glass"><span class="empty-ic">${icon('payments')}</span><h3>No one is chipping in yet</h3><p>${+ev.perHead ? 'Add guests and each person gets the per-person share.' : 'Set a per-person amount, then everyone on the guest list gets a share to pay.'}</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="tab" data-tab="guests">${icon('groups')}Go to guests</button><button class="btn ghost" data-act="edit-money">${icon('tune')}Contri settings</button></div>` : ''}</section>`;
+  if(!st.sharers.length) return `<section class="empty plain"><span class="empty-ic">${icon('payments')}</span><h3>No one is chipping in yet</h3><p>${+ev.perHead ? 'Add guests and each person gets the per-person share.' : 'Set a per-person amount, then everyone on the guest list gets a share to pay.'}</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="tab" data-tab="guests">${icon('groups')}Go to guests</button><button class="btn ghost" data-act="edit-money">${icon('tune')}Contri settings</button></div>` : ''}</section>`;
   const q = (S.cq || '').trim().toLowerCase();
   const rows = [...st.sharers].filter(r => !q || r.name.toLowerCase().includes(q)).sort((a, b) => b.due - a.due || a.name.localeCompare(b.name));
   return `<label class="search">${icon('search')}<input class="input" id="c-search" type="search" placeholder="Find someone" value="${esc(S.cq || '')}" aria-label="Search contributions"></label>
@@ -518,17 +507,17 @@ function expensesBlock(ev, st){
   const xs = [...S.expenses].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
   const list = xs.length ? `<section class="list-card plain"><div class="lc-head"><div><b>${xs.length} ${xs.length === 1 ? 'expense' : 'expenses'}</b><br><span>${inr(st.spent)} spent${st.contri ? ` · ${inr(st.potSpent)} from the pot` : ''}</span></div><button class="icon-btn" data-act="export-expenses" aria-label="Download expenses as a spreadsheet">${icon('download')}</button></div>
     ${xs.map(x => `<button class="row" data-act="expense" data-id="${esc(x.id)}"><span class="row-ic">${icon('receipt_long')}</span><span class="row-main"><b>${esc(x.title || 'Expense')}</b><span class="row-sub">${esc([catName(ev, x.category), st.contri ? payerName(x.paidBy) : '', x.vendor, E.fmtShort(x.date)].filter(Boolean).join(' · '))}</span></span><span class="row-amt">${inr(x.amount)}</span></button>`).join('')}</section>`
-    : `<section class="empty glass"><span class="empty-ic">${icon('receipt_long')}</span><h3>No expenses yet</h3><p>Log each bill as you go: decorator, mithai, drinks.${st.contri ? ' If a friend pays for something directly, it counts towards their contri.' : ''}</p>${S.canWrite ? `<button class="btn" data-act="add-expense">${icon('add')}Add expense</button>` : ''}</section>`;
+    : `<section class="empty plain"><span class="empty-ic">${icon('receipt_long')}</span><h3>No expenses yet</h3><p>Log each bill as you go: decorator, mithai, drinks.${st.contri ? ' If a friend pays for something directly, it counts towards their contri.' : ''}</p>${S.canWrite ? `<button class="btn" data-act="add-expense">${icon('add')}Add expense</button>` : ''}</section>`;
   return catCard + list;
 }
 function settleBlock(ev, st){
-  if(!st.sharers.length) return `<section class="empty glass"><span class="empty-ic">${icon('groups')}</span><h3>Nobody to split with yet</h3><p>Add guests with a contri share first.</p></section>`;
-  if(!st.spent) return `<section class="empty glass"><span class="empty-ic">${icon('balance')}</span><h3>Nothing spent yet</h3><p>Once expenses are in, this splits the actual spend by each person’s share (plus-ones included) and shows who gets money back and who still owes.</p></section>`;
+  if(!st.sharers.length) return `<section class="empty plain"><span class="empty-ic">${icon('groups')}</span><h3>Nobody to split with yet</h3><p>Add guests with a contri share first.</p></section>`;
+  if(!st.spent) return `<section class="empty plain"><span class="empty-ic">${icon('balance')}</span><h3>Nothing spent yet</h3><p>Once expenses are in, this splits the actual spend by each person’s share (plus-ones included) and shows who gets money back and who still owes.</p></section>`;
   const rows = [...st.sharers].sort((a, b) => a.bal - b.bal);
   const eq = st.uniform
     ? `<div><b>${inr(st.spent)}</b><span>spent</span></div><span class="op">÷</span><div><b>${st.splitPeople}</b><span>people</span></div><span class="op">=</span><div><b>${inr(st.perPerson)}</b><span>per person</span></div>`
     : `<div><b>${inr(st.spent)}</b><span>spent</span></div><span class="op">→</span><div><b>${st.splitPeople}</b><span>people</span></div><span class="op">·</span><div><b>By share</b><span>custom shares count</span></div>`;
-  return `<section class="glass settle-eq">${eq}</section>
+  return `<section class="plain settle-eq">${eq}</section>
     <section class="list-card plain"><div class="lc-head"><div><b>Final split</b><br><span>Each person’s part of the actual spend, minus what they put in</span></div></div>
       ${rows.map(r => `<div class="row" style="cursor:default"><span class="av ${E.avc(r.name)}">${esc(E.initials(r.name))}</span><span class="row-main"><b>${esc(r.name)}</b><span class="row-sub">${r.weight ? `Share ${inr(r.fair)}${r.people > 1 ? ` · ${r.people} people` : ''}` : 'Share waived'} · put in ${inr(r.contributed)}</span></span>${Math.abs(r.bal) < 1 ? `<span class="tag">Settled</span>` : r.bal > 0 ? `<span class="tag good">Gets back ${inr(r.bal)}</span>` : `<span class="tag bad">Owes ${inr(-r.bal)}</span>`}</div>`).join('')}
       <div class="lc-foot"><span class="muted">In the pot: <b class="num" style="color:var(--ink)">${inr(st.inHand)}</b></span><button class="btn tonal sm" data-act="settle-msg">${icon('ios_share')}Share split</button></div></section>`;
@@ -602,9 +591,9 @@ function planView(ev){
 E.imgSrc = m => m.img ? '/api/data/img/' + m.img : m.asset ? '/_blob/' + m.asset : (m.src || '');
 function moodBlock(ev){
   const th = ev.theme || {}, palette = th.palette || [], items = [...S.mood].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  return `<section class="theme-card glass foil"><div class="card-h"><div><p class="eyebrow">Theme</p><div class="theme-name">${esc(th.name || 'Untitled theme')}</div>${th.dress ? `<p class="dress">${icon('styler')}Dress code · ${esc(th.dress)}</p>` : ''}</div>${S.canWrite ? `<button class="btn text sm" data-act="edit-theme">${icon('edit')}Edit</button>` : ''}</div>
+  return `<section class="theme-card plain foil"><div class="card-h"><div><p class="eyebrow">Theme</p><div class="theme-name">${esc(th.name || 'Untitled theme')}</div>${th.dress ? `<p class="dress">${icon('styler')}Dress code · ${esc(th.dress)}</p>` : ''}</div>${S.canWrite ? `<button class="btn text sm" data-act="edit-theme">${icon('edit')}Edit</button>` : ''}</div>
       ${palette.length ? `<div class="swatches">${palette.map(c => `<div class="swatch"><i style="--c:${okHex(c.hex)}"></i><span>${esc(c.name || c.hex)}</span></div>`).join('')}</div>` : `<p class="muted">No palette yet.</p>`}${strip(ev)}</section>
-    ${items.length ? `<div class="board" id="board">${items.map(mtile).join('')}</div>` : `<section class="empty glass" id="board"><span class="empty-ic">${icon('auto_awesome_mosaic')}</span><h3>Start the mood board</h3><p>Décor references, outfits, table settings and notes for the decorator. You can also paste or drop images here.</p>${S.canWrite ? `<button class="btn" data-act="add-mood">${icon('add_photo_alternate')}Add to board</button>` : ''}</section>`}`;
+    ${items.length ? `<div class="board" id="board">${items.map(mtile).join('')}</div>` : `<section class="empty plain" id="board"><span class="empty-ic">${icon('auto_awesome_mosaic')}</span><h3>Start the mood board</h3><p>Décor references, outfits, table settings and notes for the decorator. You can also paste or drop images here.</p>${S.canWrite ? `<button class="btn" data-act="add-mood">${icon('add_photo_alternate')}Add to board</button>` : ''}</section>`}`;
 }
 function mtile(m){
   const id = esc(m.id);
@@ -617,8 +606,8 @@ function dueChip(t){ if(!t.due) return ''; const n = E.daysUntil(t.due), cls = t
 const taskRow = t => `<div class="task${t.done ? ' done' : ''}"><button class="cb${t.done ? ' on' : ''}" data-act="toggle-task" data-id="${esc(t.id)}" aria-pressed="${!!t.done}" aria-label="${t.done ? 'Mark as not done' : 'Mark as done'}: ${esc(t.text)}" ${S.canWrite ? '' : 'disabled'}><i>${icon('check')}</i></button><button class="task-text" data-act="task" data-id="${esc(t.id)}"><span>${esc(t.text)}</span>${dueChip(t)}</button></div>`;
 function tasksBlock(ev){
   const open = S.tasks.filter(t => !t.done).sort(taskSort), done = S.tasks.filter(t => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)), total = S.tasks.length, p = total ? done.length / total : 0;
-  return `<section class="glass card" style="flex-direction:row;align-items:center"><div class="ring-wrap">${E.ring(p, 64, 6, total && !open.length ? 'good' : '')}<b>${Math.round(p * 100)}%</b></div><div style="min-width:0"><div class="big-amt" style="font-size:24px">${total ? `${done.length} of ${total} done` : 'No tasks yet'}</div><div class="muted small">${open[0] ? `Next: ${esc(open[0].text)}` : total ? 'Everything is ticked off.' : 'Add the first thing to sort out.'}</div></div></section>
-    ${S.canWrite ? `<form class="add-task glass" id="addTask" autocomplete="off"><input class="input" id="taskText" placeholder="Add a task" maxlength="140" aria-label="New task"><input class="input" type="date" id="taskDue" aria-label="Due date"><button class="add-btn" type="submit" aria-label="Add task">${icon('add')}</button></form>` : ''}
+  return `<section class="plain card" style="flex-direction:row;align-items:center"><div class="ring-wrap">${E.ring(p, 64, 6, total && !open.length ? 'good' : '')}<b>${Math.round(p * 100)}%</b></div><div style="min-width:0"><div class="big-amt" style="font-size:24px">${total ? `${done.length} of ${total} done` : 'No tasks yet'}</div><div class="muted small">${open[0] ? `Next: ${esc(open[0].text)}` : total ? 'Everything is ticked off.' : 'Add the first thing to sort out.'}</div></div></section>
+    ${S.canWrite ? `<form class="add-task plain" id="addTask" autocomplete="off"><input class="input" id="taskText" placeholder="Add a task" maxlength="140" aria-label="New task"><input class="input" type="date" id="taskDue" aria-label="Due date"><button class="add-btn" type="submit" aria-label="Add task">${icon('add')}</button></form>` : ''}
     ${open.length ? `<section class="list-card plain">${open.map(taskRow).join('')}</section>` : ''}
     ${done.length ? `<button class="done-toggle" data-act="done-toggle" aria-expanded="${S.doneOpen}">${icon(S.doneOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down')}Done · ${done.length}</button>${S.doneOpen ? `<section class="list-card plain">${done.map(taskRow).join('')}</section>` : ''}` : ''}`;
 }
@@ -715,21 +704,52 @@ function taskSheet(t){
 }
 
 /* mood photos */
+async function moodItem(f){
+  const item = {kind:'image', caption:'', createdAt:Date.now()};
+  if(Store.mode === 'remote'){ let blob = f; if(f.size > 1.6e6 || !/^image\/(png|jpeg|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 1800), 0.85); item.img = await E.Remote.uploadImage(blob); }
+  else if(S.assets){ let blob = f; if(f.size > 2.5e6 || !/^image\/(png|jpeg|gif|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 2000), 0.86); item.asset = (await S.assets.upload(blob, {type:blob.type || 'image/jpeg'})).id; }
+  else { const cloud = Store.mode === 'cloud'; let d = (await E.scaled(f, cloud ? 1100 : 820)).toDataURL('image/jpeg', cloud ? 0.74 : 0.66); if(d.length > 230000) d = (await E.scaled(f, 680)).toDataURL('image/jpeg', 0.6); item.src = d; }
+  return item;
+}
+const photoFail = () => toast(Store.mode === 'remote' && !navigator.onLine ? 'Photos need a connection. Try again when you’re online.' : 'Couldn’t add that photo. Try a JPG or PNG.', 'warning');
 async function addPhotos(files){
   files = [...files].filter(f => f.type.startsWith('image/'));
   if(!files.length || !S.cur || !S.canWrite) return;
   toast(`Adding ${files.length} ${files.length === 1 ? 'photo' : 'photos'}…`, 'upload');
   let ok = 0;
   for(const f of files){
-    try{
-      const item = {kind:'image', caption:'', createdAt:Date.now()};
-      if(Store.mode === 'remote'){ let blob = f; if(f.size > 1.6e6 || !/^image\/(png|jpeg|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 1800), 0.85); item.img = await E.Remote.uploadImage(blob); }
-      else if(S.assets){ let blob = f; if(f.size > 2.5e6 || !/^image\/(png|jpeg|gif|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 2000), 0.86); item.asset = (await S.assets.upload(blob, {type:blob.type || 'image/jpeg'})).id; }
-      else { const cloud = Store.mode === 'cloud'; let d = (await E.scaled(f, cloud ? 1100 : 820)).toDataURL('image/jpeg', cloud ? 0.74 : 0.66); if(d.length > 230000) d = (await E.scaled(f, 680)).toDataURL('image/jpeg', 0.6); item.src = d; }
-      if(await save(Store.set(E.evPath('mood', 'm' + uid()), item))) ok++; else break;
-    }catch(e){ console.warn(e); toast(Store.mode === 'remote' && !navigator.onLine ? 'Photos need a connection. Try again when you’re online.' : 'Couldn’t add that photo. Try a JPG or PNG.', 'warning'); if(!navigator.onLine) break; }
+    try{ if(await save(Store.set(E.evPath('mood', 'm' + uid()), await moodItem(f)))) ok++; else break; }
+    catch(e){ console.warn(e); photoFail(); if(!navigator.onLine) break; }
   }
   if(ok) toast(ok === 1 ? 'Photo added to the board' : `${ok} photos added to the board`, 'add_photo_alternate');
+}
+
+/* event cover: a mood-board photo, a new upload, or the event's pattern */
+const coverOf = m => m.img ? {img:m.img} : m.asset ? {asset:m.asset} : m.src ? {src:m.src} : null;
+const sameCover = (a, b) => !!(a && b && ((a.img && a.img === b.img) || (a.asset && a.asset === b.asset) || (a.src && a.src === b.src)));
+function coverSheet(ev){
+  const imgs = S.mood.filter(m => m.kind === 'image').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  openSheet({id:'cover', title:'Event cover', body:`<p class="muted">Shown on the event card and at the top of the overview. Guests never see it.</p>
+    <div class="cover-grid">
+      <button class="cover-opt" type="button" data-cover="pattern" aria-pressed="${!ev.cover}">${E.coverHtml({...ev, cover:null})}<span>${E.motifName(ev.type)} in your palette</span></button>
+      ${imgs.map(m => `<button class="cover-opt" type="button" data-cover="${esc(m.id)}" aria-pressed="${sameCover(ev.cover, m)}"><div class="cover photo"><img src="${esc(E.imgSrc(m))}" alt=""></div><span>${esc(m.caption || 'From the mood board')}</span></button>`).join('')}
+      <button class="cover-opt add" type="button" data-cover="upload"><div class="cover add-ic">${icon('add_photo_alternate', false, 'lg')}</div><span>Upload a photo</span></button>
+    </div>`,
+  mount: b => b.addEventListener('click', async e => {
+    const o = e.target.closest('[data-cover]'); if(!o) return; const k = o.dataset.cover;
+    if(k === 'upload'){
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.addEventListener('change', async () => {
+        const f = inp.files[0]; if(!f) return; toast('Adding the cover…', 'upload');
+        try{ const item = await moodItem(f); item.caption = 'Event cover'; await save(Store.set(E.evPath('mood', 'm' + uid()), item));
+          if(await save(Store.update(`events/${ev.id}`, {cover:coverOf(item)}))){ closeSheet(); toast('Cover added, and saved to the mood board', 'photo_camera'); } }
+        catch(x){ console.warn(x); photoFail(); }
+      });
+      inp.click(); return;
+    }
+    const cover = k === 'pattern' ? null : coverOf(S.mood.find(x => x.id === k) || {});
+    if(await save(Store.update(`events/${ev.id}`, {cover}))){ closeSheet(); toast(cover ? 'Cover updated' : `${E.motifName(ev.type)} cover set`, 'photo_camera'); }
+  })});
 }
 
 /* ---------- workspace: sign in, settings, device data ---------- */
@@ -797,7 +817,7 @@ async function seedSample(){
 }
 function localOfferCard(){
   if(!S.localOffer || Store.mode !== 'remote') return '';
-  return `<section class="offer glass"><span class="empty-ic">${icon('cloud_upload')}</span><div class="grow"><b>Events saved only on this device</b><p class="muted small">Add them to your workspace so they show up everywhere. Nothing already there gets replaced.</p></div>
+  return `<section class="offer plain"><span class="empty-ic">${icon('cloud_upload')}</span><div class="grow"><b>Events saved only on this device</b><p class="muted small">Add them to your workspace so they show up everywhere. Nothing already there gets replaced.</p></div>
     <div class="offer-act"><button class="btn sm gold" data-act="import-local">Add them</button><button class="btn text sm" data-act="dismiss-local">Not now</button></div></section>`;
 }
 const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 10 ? 'just now' : s < 60 ? `${s} seconds ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : new Date(t).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'}); };
@@ -913,6 +933,7 @@ document.addEventListener('click', e => {
     case 'open-event': openEvent(id, 'overview'); break;
     case 'new-event': if(S.canWrite) eventSheet(null, t.dataset.type); break;
     case 'edit-event': if(ev && S.canWrite) eventSheet(ev); break;
+    case 'edit-cover': if(ev && S.canWrite) coverSheet(ev); break;
     case 'tab': S.tab = t.dataset.tab; saveNav(); E.render(); window.scrollTo(0, 0); break;
     case 'sub': S.tab = t.dataset.tab; S.sub[t.dataset.tab] = t.dataset.sub; saveNav(); E.render(); if(!t.closest('.seg')) window.scrollTo(0, 0); break;
     case 'filter': S.filter = t.dataset.f; E.render(); break;

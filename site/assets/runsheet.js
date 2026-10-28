@@ -53,8 +53,8 @@ function nowCard(ev, compact){
 }
 function block(ev){
   const items = sorted(), today = E.daysUntil(ev.date) === 0, w = S.canWrite;
-  const add = w ? `<form class="add-task run-add glass" id="addRun" autocomplete="off"><input class="input" type="time" id="runTime" aria-label="Time" required><input class="input" id="runText" placeholder="What happens" maxlength="120" aria-label="What happens"><input class="input" id="runWho" placeholder="Who" maxlength="40" aria-label="Who is responsible"><button class="add-btn" type="submit" aria-label="Add to run sheet">${icon('add')}</button></form>` : '';
-  if(!items.length) return `<section class="empty glass"><span class="empty-ic">${icon('schedule')}</span><h3>Plan the day, hour by hour</h3><p>Who does what, and when: décor, food, puja, dinner, fireworks. On the day it turns into a Now / Next view that works without signal.</p>${w ? `<div class="chips"><button class="btn" data-act="run-starter">${icon('wand_stars')}Use the ${ev.type === 'diwali' ? 'Diwali' : 'party'} starter</button></div>` : ''}</section>${add}`;
+  const add = w ? `<form class="add-task run-add plain" id="addRun" autocomplete="off"><input class="input" type="time" id="runTime" aria-label="Time" required><input class="input" id="runText" placeholder="What happens" maxlength="120" aria-label="What happens"><input class="input" id="runWho" placeholder="Who" maxlength="40" aria-label="Who is responsible"><button class="add-btn" type="submit" aria-label="Add to run sheet">${icon('add')}</button></form>` : '';
+  if(!items.length) return `<section class="empty plain"><span class="empty-ic">${icon('schedule')}</span><h3>Plan the day, hour by hour</h3><p>Who does what, and when: décor, food, puja, dinner, fireworks. On the day it turns into a Now / Next view that works without signal.</p>${w ? `<div class="chips"><button class="btn" data-act="run-starter">${icon('wand_stars')}Use the ${ev.type === 'diwali' ? 'Diwali' : 'party'} starter</button></div>` : ''}</section>${add}`;
   const {now} = nowNext();
   return `${today || preview ? nowCard(ev) : ''}
     ${add}

@@ -22,15 +22,15 @@ async function load(){
   }catch(e){ if(!data) notFound('Couldn’t reach the gallery. Check your connection and try again.'); }
 }
 function notFound(msg){
-  $('#g').innerHTML = `<div class="g-logo"><span class="logo" role="img" aria-label="Ekāya Events"><svg class="lg-mark" aria-hidden="true"><use href="/assets/brand.svg#mark"/></svg><span class="lg-text"><svg class="lg-word" aria-hidden="true"><use href="/assets/brand.svg#ekaya"/></svg><span class="lg-tag">Events</span></span></span></div><section class="g-head glass foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">Hmm, <em>no gallery</em> here</h1><p class="sub">${esc(msg || 'This link may be incomplete. Scan the QR code again.')}</p><span class="g-brand">ekaya</span></section>`;
+  $('#g').innerHTML = `<div class="g-logo"><span class="logo" role="img" aria-label="Ekāya Events"><svg class="lg-mark" aria-hidden="true"><use href="/assets/brand.svg#mark"/></svg><span class="lg-text"><svg class="lg-word" aria-hidden="true"><use href="/assets/brand.svg#ekaya"/></svg><span class="lg-tag">Events</span></span></span></div><section class="g-head plain foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">Hmm, <em>no gallery</em> here</h1><p class="sub">${esc(msg || 'This link may be incomplete. Scan the QR code again.')}</p><span class="g-brand">ekaya</span></section>`;
 }
 function render(){
   const pal = (data.palette || []);
   const up = $('#g-up-name') ? $('#g-up-name').value : getName();
-  $('#g').innerHTML = `<div class="g-logo"><span class="logo" role="img" aria-label="Ekāya Events"><svg class="lg-mark" aria-hidden="true"><use href="/assets/brand.svg#mark"/></svg><span class="lg-text"><svg class="lg-word" aria-hidden="true"><use href="/assets/brand.svg#ekaya"/></svg><span class="lg-tag">Events</span></span></span></div><section class="g-head glass foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">${esc(data.title)}</h1>${data.date ? `<p class="sub">${esc(fmtDate(data.date))}</p>` : ''}<span class="tag gold" id="g-count">${icon('photo_library')}${data.count} ${data.count === 1 ? 'photo' : 'photos'}</span>${pal.length ? `<div class="strip">${pal.map(h => `<i style="--c:${esc(h)}"></i>`).join('')}</div>` : ''}</section>
-    ${data.open ? `<section class="g-up glass"><label class="field"><span>Your name (optional)</span><input class="input" id="g-up-name" maxlength="30" placeholder="So people know who took it" value="${esc(up)}" autocomplete="name"></label>
+  $('#g').innerHTML = `<div class="g-logo"><span class="logo" role="img" aria-label="Ekāya Events"><svg class="lg-mark" aria-hidden="true"><use href="/assets/brand.svg#mark"/></svg><span class="lg-text"><svg class="lg-word" aria-hidden="true"><use href="/assets/brand.svg#ekaya"/></svg><span class="lg-tag">Events</span></span></span></div><section class="g-head plain foil"><span class="eyebrow gold">Photo wall</span><h1 class="display">${esc(data.title)}</h1>${data.date ? `<p class="sub">${esc(fmtDate(data.date))}</p>` : ''}<span class="tag gold" id="g-count">${icon('photo_library')}${data.count} ${data.count === 1 ? 'photo' : 'photos'}</span>${pal.length ? `<div class="strip">${pal.map(h => `<i style="--c:${esc(h)}"></i>`).join('')}</div>` : ''}</section>
+    ${data.open ? `<section class="g-up plain"><label class="field"><span>Your name (optional)</span><input class="input" id="g-up-name" maxlength="30" placeholder="So people know who took it" value="${esc(up)}" autocomplete="name"></label>
       <button class="btn gold" id="g-add" type="button">${icon('add_photo_alternate')}Add your photos</button><div class="g-prog" id="g-prog">${retryHtml()}</div><p class="hint-s">Photos are shared with everyone who has this link.</p></section>`
-      : `<section class="g-up glass"><p class="sub">${icon('lock', 'sm')} Uploads are closed. You can still browse and save every photo.</p></section>`}
+      : `<section class="g-up plain"><p class="sub">${icon('lock', 'sm')} Uploads are closed. You can still browse and save every photo.</p></section>`}
     <div class="section-label"><span class="eyebrow">Gallery</span></div>
     <div id="g-gal">${galHtml()}</div>
     <p class="g-foot"><svg aria-hidden="true"><use href="/assets/brand.svg#mark"/></svg><span>A celebration by Ekāya Events</span></p>`;
@@ -39,7 +39,7 @@ function render(){
 }
 function galHtml(){
   return data.photos.length ? `<div class="g-grid">${data.photos.map((p, i) => `<button type="button" data-i="${i}" aria-label="Open photo ${i + 1}"><img src="${esc(thumb(p.k))}" alt="" loading="lazy"></button>`).join('')}</div>`
-    : `<section class="empty glass"><span class="empty-ic">${icon('photo_camera')}</span><h3>Be the first</h3><p>No photos yet. Add yours and they’ll show up here for everyone.</p></section>`;
+    : `<section class="empty plain"><span class="empty-ic">${icon('photo_camera')}</span><h3>Be the first</h3><p>No photos yet. Add yours and they’ll show up here for everyone.</p></section>`;
 }
 let lastSig = '';
 function refreshParts(){

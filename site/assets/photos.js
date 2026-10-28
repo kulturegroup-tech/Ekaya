@@ -22,17 +22,17 @@ function qrCard(ev, id){
 function view(ev){
   const head = `<section class="vhead"><p class="eyebrow gold">${esc(ev.name)}</p><div class="vhead-row"><h1 class="h1">Photo wall</h1></div></section>`;
   const signedOut = E.Store.mode === 'local' && P.needSignIn;
-  if(!E.onNetlify()) return head + `<section class="empty glass"><span class="empty-ic">${icon('qr_code_2')}</span><h3>Open Ekāya on its website</h3><p>The QR photo wall needs the Netlify site, where guests can upload without an account.</p></section>`;
-  if(!ev.gallery) return head + `<section class="wall-hero glass foil"><div style="display:flex;flex-direction:column;gap:16px">
+  if(!E.onNetlify()) return head + `<section class="empty plain"><span class="empty-ic">${icon('qr_code_2')}</span><h3>Open Ekāya on its website</h3><p>The QR photo wall needs the Netlify site, where guests can upload without an account.</p></section>`;
+  if(!ev.gallery) return head + `<section class="wall-hero plain foil"><div style="display:flex;flex-direction:column;gap:16px">
       <p class="sub" style="font-size:17px">Put one QR code on the tables. Guests scan it, add their photos from the party, and everyone can see and download the whole gallery. No app, no login.</p>
       <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--ink-2)"><li>Create the wall and print the QR card</li><li>Guests scan and upload from their phones</li><li>Everyone browses and saves the photos</li></ol>
       ${signedOut ? `<p class="hint">${icon('lock')}<span>Sign in to your Ekāya workspace to create a shareable photo wall. You can preview the card here.</span></p><div><button class="btn gold" data-act="turn-on-sync">${icon('login')}Sign in</button></div>`
         : S.canWrite ? `<div><button class="btn gold" data-act="wall-create">${icon('qr_code_2')}Create photo wall</button></div>` : ''}</div>
       <div class="qr-card preview" style="opacity:.9"><span class="pv-tag">Preview</span><span class="qe">Photo wall</span><h3>${esc(ev.name)}</h3><div class="qr ph">${icon('qr_code_2', false, 'lg')}</div><p>Scan to add your photos</p></div></section>`;
   const id = ev.gallery.id, d = P.id === id ? P.data : null, url = guestUrl(id);
-  if(P.id === id && P.err === 'missing') return head + `<section class="empty glass"><span class="empty-ic">${icon('error')}</span><h3>This photo wall was removed</h3><p>Create a new one to get a fresh QR code.</p>${S.canWrite ? `<button class="btn" data-act="wall-create">${icon('qr_code_2')}Create a new wall</button>` : ''}</section>`;
+  if(P.id === id && P.err === 'missing') return head + `<section class="empty plain"><span class="empty-ic">${icon('error')}</span><h3>This photo wall was removed</h3><p>Create a new one to get a fresh QR code.</p>${S.canWrite ? `<button class="btn" data-act="wall-create">${icon('qr_code_2')}Create a new wall</button>` : ''}</section>`;
   const open = d ? d.open : true, photos = d ? d.photos : [];
-  return head + `<section class="wall-hero glass foil"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+  return head + `<section class="wall-hero plain foil"><div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       <div class="stat-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><span>Photos</span><b class="gold">${d ? d.count : '…'}</b><small>${d && d.count ? `latest ${timeAgo(photos[0].t)}` : 'none yet'}</small></div><div><span>Uploads</span><b class="${open ? 'good' : 'bad'}">${open ? 'Open' : 'Closed'}</b><small>${open ? 'guests can add' : 'browse only'}</small></div></div>
       <div class="link-box"><code>${esc(url.replace(/^https?:\/\//, ''))}</code><button class="icon-btn" data-act="wall-copy" aria-label="Copy link">${icon('content_copy')}</button></div>
       <div class="chips"><button class="btn gold" data-act="wall-card">${icon('download')}Download QR card</button><button class="btn ghost" data-act="wall-share">${icon('ios_share')}Share link</button><a class="btn ghost" href="${esc(url)}" target="_blank" rel="noopener">${icon('open_in_new')}Guest view</a></div>
@@ -40,7 +40,7 @@ function view(ev){
     </div>${qrCard(ev, id)}</section>
     <div class="section-label"><span class="eyebrow">Gallery</span><span class="grow"></span><button class="btn text sm" data-act="wall-upload">${icon('add_photo_alternate')}Add photos</button><button class="icon-btn" data-act="wall-refresh" aria-label="Refresh">${icon('refresh')}</button></div>
     ${!d ? `<div class="pgrid">${'<button disabled></button>'.repeat(6)}</div>` : photos.length ? `<div class="pgrid">${photos.map(p => `<button data-act="photo" data-k="${esc(p.k)}" aria-label="Open photo"><img src="${esc(thumb(id, p.k))}" alt="" loading="lazy"></button>`).join('')}</div>`
-      : `<section class="empty glass"><span class="empty-ic">${icon('photo_camera')}</span><h3>No photos yet</h3><p>Once guests scan the QR and upload, their photos appear here.</p></section>`}
+      : `<section class="empty plain"><span class="empty-ic">${icon('photo_camera')}</span><h3>No photos yet</h3><p>Once guests scan the QR and upload, their photos appear here.</p></section>`}
     ${P.err === 'offline' ? `<p class="hint-s">Couldn’t reach the photo wall just now. It retries every 30 seconds.</p>` : ''}`;
 }
 function timeAgo(t){ if(!t) return ''; const m = Math.round((Date.now() - t) / 60000); if(m < 1) return 'just now'; if(m < 60) return `${m} min ago`; const h = Math.round(m / 60); if(h < 24) return `${h} h ago`; return new Date(t).toLocaleDateString('en-IN', {day:'numeric', month:'short'}); }

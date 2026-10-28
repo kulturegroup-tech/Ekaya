@@ -29,6 +29,17 @@ E.ring = (p, size=68, sw=6, cls='') => {
 };
 E.waLink = (text, phone) => { let p = String(phone||'').replace(/\D/g,''); if(p.length === 10) p = '91' + p; return `https://wa.me/${p}?text=${encodeURIComponent(text)}`; };
 E.upiLink = (vpa, name, amount, note) => `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(name||'Ekaya')}${amount > 0 ? `&am=${(+amount).toFixed(2)}&cu=INR` : ''}${note ? `&tn=${encodeURIComponent(String(note).slice(0,50))}` : ''}`;
+/* a small burst of gold and maroon from a button: bigger when a payment completes someone's share */
+E.celebrate = (el, big) => {
+  if(!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = el.getBoundingClientRect(), box = document.createElement('div'), n = big ? 26 : 12, cols = ['var(--gold-hi)', 'var(--gold)', 'var(--brand)', '#F7F2D0'];
+  box.className = 'burst' + (big ? ' big' : ''); box.style.left = (r.left + r.width / 2) + 'px'; box.style.top = (r.top + r.height / 2) + 'px';
+  for(let i = 0; i < n; i++){ const s = document.createElement('i'), a = Math.random() * Math.PI * 2, d = (big ? 70 : 36) + Math.random() * (big ? 80 : 34);
+    s.style.setProperty('--x', (Math.cos(a) * d).toFixed(0) + 'px'); s.style.setProperty('--y', (Math.sin(a) * d - (big ? 26 : 12)).toFixed(0) + 'px'); s.style.setProperty('--r', (Math.random() * 540 - 270).toFixed(0) + 'deg');
+    s.style.background = cols[i % cols.length]; s.style.animationDelay = (Math.random() * 70).toFixed(0) + 'ms'; if(i % 3 === 0) s.className = 'f'; box.appendChild(s); }
+  if(big){ const ring = document.createElement('b'); box.appendChild(ring); }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 1200);
+};
 E.vibrate = ms => { try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
 /* the Ekāya logo, drawn from the brand sprite so it takes the theme colour */
 const BRAND = '/assets/brand.svg';
@@ -136,6 +147,50 @@ E.writeErr = e => {
   else E.toast('Couldn’t save just now. Try again.', 'warning');
 };
 E.save = async p => { try{ await p; return true; }catch(e){ console.warn(e); E.writeErr(e); return false; } };
+
+/* ---------- event covers: the event's own photo, or a motif drawn in its palette ----------
+   Diwali gets rows of diya flames (the flame from the Ekāya mark), weddings a marigold toran,
+   birthdays confetti, everything else an art-deco sunburst. Seeded by the event, so it never shuffles. */
+const seeded = key => { let h = 2166136261; for(const c of String(key)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+const rgbOf = hex => { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const lumOf = hex => { const [r, g, b] = rgbOf(hex); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+const mixHex = (a, b, t) => { const x = rgbOf(a), y = rgbOf(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+let motifN = 0;
+E.motifName = type => ({diwali:'Diya pattern', wedding:'Marigold toran', sangeet:'Marigold toran', birthday:'Confetti', babyshower:'Confetti'})[type] || 'Art deco';
+E.motif = ev => {
+  const pal = (ev.theme?.palette || []).map(c => E.okHex(c.hex)).filter(Boolean);
+  const cols = pal.length ? pal : ['#682127', '#C49A55', '#F2E8C6', '#D9A92F'];
+  const darkest = [...cols].sort((a, b) => lumOf(a) - lumOf(b))[0];
+  const bg = lumOf(darkest) < 0.4 ? darkest : '#682127';
+  const lit = cols.filter(c => c !== bg && lumOf(c) > 0.33); const ink = lit.length ? lit : ['#F2E8C6', '#C49A55'];
+  const R = seeded(ev.id || ev.name || 'ekaya'), pick = i => ink[Math.abs(i) % ink.length], W = 600, H = 240, id = 'mg' + (++motifN);
+  let g = '';
+  if(ev.type === 'diwali'){
+    for(let row = 0; row < 4; row++) for(let col = 0; col < 12; col++){
+      const x = col * 54 + (row % 2 ? 27 : 0) + 8, y = 38 + row * 60, sc = (0.75 + R() * 0.5).toFixed(2), c = pick(col + row * 2);
+      g += `<g transform="translate(${x} ${y}) scale(${sc})" opacity="${(0.4 + R() * 0.55).toFixed(2)}"><circle r="17" fill="${c}" opacity=".13"/><path d="M0-15C6-7 7 2 0 8-7 2-6-7 0-15Z" fill="${c}"/><path d="M0-6C2-3 2.4 1 0 4-2.4 1-2-3 0-6Z" fill="${bg}" opacity=".55"/><path d="M-12 11h24c-2 6-7 8-12 8s-10-2-12-8Z" fill="${pick(col + row * 2 + 1)}" opacity=".8"/></g>`;
+    }
+  } else if(ev.type === 'wedding' || ev.type === 'sangeet'){
+    for(let k = 0; k < 6; k++){
+      const x0 = k * 100;
+      for(let j = 0; j <= 9; j++){ const t = j / 9, x = x0 + 100 * t, y = 16 + Math.sin(Math.PI * t) * 34; g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5" fill="${pick(k + j)}"/>`; }
+      for(let j = 0; j < 7; j++) g += `<circle cx="${x0 + 100}" cy="${26 + j * 13}" r="${j === 6 ? 8 : 5.5}" fill="${pick(j + k)}"/>`;
+    }
+    for(let r = 55; r <= 180; r += 25) g += `<circle cx="300" cy="300" r="${r}" fill="none" stroke="${pick(r)}" stroke-width="1.6" stroke-dasharray="${(r / 5) % 2 ? '2 7' : '12 6'}" opacity=".5"/>`;
+  } else if(ev.type === 'birthday' || ev.type === 'babyshower'){
+    for(let i = 0; i < 80; i++){ const x = (R() * W).toFixed(0), y = (R() * H).toFixed(0), c = pick(i);
+      g += R() < 0.55 ? `<rect x="${x}" y="${y}" width="${(6 + R() * 9).toFixed(0)}" height="4" rx="2" fill="${c}" opacity=".85" transform="rotate(${(R() * 180).toFixed(0)} ${x} ${y})"/>` : `<circle cx="${x}" cy="${y}" r="${(2 + R() * 3.4).toFixed(1)}" fill="${c}" opacity=".8"/>`; }
+  } else {
+    for(let i = 0; i < 37; i++){ const a = Math.PI + (i / 36) * Math.PI; g += `<line x1="300" y1="262" x2="${(300 + Math.cos(a) * 760).toFixed(0)}" y2="${(262 + Math.sin(a) * 760).toFixed(0)}" stroke="${pick(i)}" stroke-width="${i % 2 ? 1 : 2.2}" opacity="${i % 2 ? .22 : .42}"/>`; }
+    for(let r = 44; r <= 220; r += 44) g += `<circle cx="300" cy="262" r="${r}" fill="none" stroke="${pick(r / 44)}" stroke-width="1.3" opacity=".35"/>`;
+    for(let i = 0; i < 16; i++){ const x = R() * W, y = R() * H * 0.7, z = 4 + R() * 4, q = z * 0.25, P = (a, b) => `${(x + a).toFixed(1)} ${(y + b).toFixed(1)}`; g += `<path d="M${P(0, -z)}L${P(q, -q)}L${P(z, 0)}L${P(q, q)}L${P(0, z)}L${P(-q, q)}L${P(-z, 0)}L${P(-q, -q)}Z" fill="${pick(i)}" opacity=".75"/>`; }
+  }
+  return `<svg class="motif" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mixHex(bg, '#ffffff', 0.1)}"/><stop offset="1" stop-color="${mixHex(bg, '#000000', 0.28)}"/></linearGradient></defs><rect width="${W}" height="${H}" fill="url(#${id})"/>${g}</svg>`;
+};
+E.coverHtml = (ev, cls = '') => {
+  const c = ev.cover, src = c && E.imgSrc ? E.imgSrc(c) : '';
+  return `<div class="cover ${cls}${src ? ' photo' : ''}">${src ? `<img src="${esc(src)}" alt="" loading="lazy">` : E.motif(ev)}<i class="cover-fade"></i></div>`;
+};
 
 /* ---------- money & guest maths ----------
    Contri rules (agreed with Ekta):
