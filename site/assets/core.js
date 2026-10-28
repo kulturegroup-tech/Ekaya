@@ -91,18 +91,26 @@ E.Store = (() => {
   const persist = () => { try{ localStorage.setItem(LKEY, JSON.stringify(local)); }catch(e){ throw Object.assign(new Error('local_full'), {code:'local_full'}); } };
   const merge = (a,b) => { const o = {...a}; for(const k in b){ const v = b[k]; o[k] = (v && typeof v==='object' && !Array.isArray(v) && a[k] && typeof a[k]==='object' && !Array.isArray(a[k])) ? merge(a[k], v) : v; } return o; };
   const q = (path, fn) => { const next = (queues.get(path)||Promise.resolve()).catch(()=>{}).then(fn); queues.set(path, next); return next; };
+  const R = () => E.Remote;
   return {
     get mode(){ return mode; },
-    init(ns){ if(ns){ db = ns; mode = 'cloud'; } else { try{ local = JSON.parse(localStorage.getItem(LKEY)||'{}') || {}; }catch(e){ local = {}; } mode = 'local'; } },
+    init(ns){
+      if(ns === 'remote'){ mode = 'remote'; R().start(); return; }
+      if(ns){ db = ns; mode = 'cloud'; } else { try{ local = JSON.parse(localStorage.getItem(LKEY)||'{}') || {}; }catch(e){ local = {}; } mode = 'local'; }
+    },
+    reset(){ mode = 'loading'; },
+    /* everything saved in this browser (device-only mode), as {path, data} pairs */
+    localDocs(){ let l = {}; try{ l = JSON.parse(localStorage.getItem(LKEY)||'{}') || {}; }catch(e){} const out = []; Object.entries(l).forEach(([c, docs]) => Object.entries(docs || {}).forEach(([id, data]) => out.push({path:`${c}/${id}`, data}))); return out; },
     subscribe(col, cb, onErr){
+      if(mode === 'remote') return R().subscribe(col, cb);
       if(mode === 'cloud') return db.collection(col).onSnapshot(s => cb(s.docs.map(d => ({id:d.id, ...d.data()}))), e => onErr && onErr(e));
       if(!listeners.has(col)) listeners.set(col, new Set());
       listeners.get(col).add(cb); queueMicrotask(() => cb(rows(col)));
       return () => listeners.get(col)?.delete(cb);
     },
-    set(path, data){ return q(path, async () => { if(mode === 'cloud') return db.doc(path).set(data); const [c,id] = colOf(path); (local[c] ||= {})[id] = JSON.parse(JSON.stringify(data)); persist(); emit(c); }); },
-    update(path, patch){ return q(path, async () => { if(mode === 'cloud') return db.doc(path).update(patch); const [c,id] = colOf(path); if(!local[c]?.[id]) throw Object.assign(new Error('missing'), {code:'invalid_argument'}); local[c][id] = merge(local[c][id], JSON.parse(JSON.stringify(patch))); persist(); emit(c); }); },
-    remove(path){ return q(path, async () => { if(mode === 'cloud') return db.doc(path).delete(); const [c,id] = colOf(path); if(local[c]) delete local[c][id]; persist(); emit(c); }); }
+    set(path, data){ if(mode === 'remote') return R().set(path, data); return q(path, async () => { if(mode === 'cloud') return db.doc(path).set(data); const [c,id] = colOf(path); (local[c] ||= {})[id] = JSON.parse(JSON.stringify(data)); persist(); emit(c); }); },
+    update(path, patch){ if(mode === 'remote') return R().update(path, patch); return q(path, async () => { if(mode === 'cloud') return db.doc(path).update(patch); const [c,id] = colOf(path); if(!local[c]?.[id]) throw Object.assign(new Error('missing'), {code:'invalid_argument'}); local[c][id] = merge(local[c][id], JSON.parse(JSON.stringify(patch))); persist(); emit(c); }); },
+    remove(path){ if(mode === 'remote') return R().remove(path); return q(path, async () => { if(mode === 'cloud') return db.doc(path).delete(); const [c,id] = colOf(path); if(local[c]) delete local[c][id]; persist(); emit(c); }); }
   };
 })();
 
@@ -136,7 +144,7 @@ E.stats = (ev, people, expenses) => {
     const contributed = paidIn + direct;
     const due = Math.max(0, expected - contributed);
     const status = expected <= 0 ? (contributed > 0 ? 'paid' : 'none') : contributed >= expected ? 'paid' : contributed > 0 ? 'part' : 'pending';
-    return {...p, rsvp:p.rsvp || 'invited', plusOnes:+p.plusOnes || 0, paidIn, direct, directList, expected, contributed, due, status};
+    return {...p, rsvp:['going','maybe','no','invited'].includes(p.rsvp) ? p.rsvp : 'invited', plusOnes:+p.plusOnes || 0, paidIn, direct, directList, expected, contributed, due, status};
   }).sort((a,b) => String(a.name).localeCompare(String(b.name)));
   const target = rows.reduce((a,r) => a + r.expected, 0);
   const collected = rows.reduce((a,r) => a + r.contributed, 0);
@@ -156,14 +164,14 @@ E.stats = (ev, people, expenses) => {
 
 /* ---------- sheets ---------- */
 let sheetCtx = null, lastFocus = null;
-E.openSheet = ({title, body, mount, refresh}) => {
+E.openSheet = ({id, title, body, mount, refresh}) => {
   lastFocus = document.activeElement;
   const sh = $('#sheet');
   sh.innerHTML = `<div class="handle" aria-hidden="true"></div><div class="sheet-head"><h2 id="sheetTitle">${title}</h2><button class="icon-btn" data-act="close-sheet" aria-label="Close">${E.icon('close')}</button></div><div class="sheet-body">${body}</div>`;
   sh.setAttribute('aria-labelledby', 'sheetTitle');
   sh.hidden = false; $('#scrim').hidden = false; document.body.classList.add('sheet-open');
   const b = $('.sheet-body', sh);
-  sheetCtx = {refresh, body:b};
+  sheetCtx = {id, refresh, body:b};
   mount && mount(b);
   const af = $('[data-autofocus]', b);
   (af || $('.icon-btn', sh)).focus({preventScroll:true});
@@ -175,6 +183,7 @@ E.closeSheet = () => {
   if(lastFocus && document.contains(lastFocus)) lastFocus.focus({preventScroll:true});
 };
 E.refreshSheet = () => { if(sheetCtx && sheetCtx.refresh) sheetCtx.refresh(sheetCtx.body); };
+E.sheetId = () => sheetCtx ? sheetCtx.id || '' : '';
 E.val = (b, sel) => ($(sel, b)?.value ?? '').trim();
 
 E.copyText = (text, ta) => {

@@ -523,3 +523,54 @@ textarea.msg{min-height:220px}
 /* lining figures for the display face (Cormorant's default old-style 1 reads as I) */
 .display,.h1,.h2,.ev-title,.countdown b,.invite .count b,.invite h3,.theme-name,.top-title b,.side-event b,.empty h3,.sheet-head h2,.settle-eq .op{font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1}
 .v3d.day .v3d-title{color:#1C1611}.v3d.day .v3d-hint{color:rgba(28,22,17,.62)}
+
+/* ---------- workspace: sign in ---------- */
+.vh{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);border:0;opacity:0}
+body.gating .topbar{background:transparent;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+.gate{min-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:12px 0 24px}
+.gate-card{width:100%;max-width:460px;display:flex;flex-direction:column;gap:14px;padding:30px 24px 18px;animation:rise .5s cubic-bezier(.2,.8,.2,1)}
+.gate-card .display{font-size:clamp(38px,10vw,52px)}
+.gate-mark{width:56px;height:56px;border-radius:20px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold-hi),var(--gold));color:#1A120A;box-shadow:0 12px 30px -12px var(--glow-a);margin-bottom:6px}
+.gate-mark .ms{width:28px;height:28px}
+.gate-form{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.gate-form .btn{height:52px;font-size:15.5px;margin-top:4px}
+.gate-foot{display:flex;justify-content:center;margin-top:2px}
+.gate-note{max-width:400px;text-align:center}
+.gate-err{margin:0;padding:10px 14px;border-radius:12px;background:var(--bad-soft);color:var(--bad);font-size:13.5px;font-weight:550}
+.pass-in{position:relative}
+.pass-in .input{padding-right:52px}
+.pass-in .icon-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ---------- sync chip, offers, settings ---------- */
+button.tag{cursor:pointer;font:650 11.5px/1 var(--f-ui)}
+button.tag:active{transform:scale(.96)}
+.sc:empty,.sci:empty{display:none}
+.warn-ic{color:var(--warn)}
+.offer{display:flex;align-items:center;gap:14px;padding:16px 18px;flex-wrap:wrap}
+.offer .empty-ic{width:48px;height:48px;border-radius:16px;flex:none}
+.offer .empty-ic .ms{width:24px;height:24px}
+.offer b{font-size:15.5px}.offer p{margin:2px 0 0}
+.offer .grow{min-width:200px}
+.offer-act{display:flex;gap:6px;align-items:center;margin-left:auto}
+.set-sync .row-flex{display:flex;gap:12px;align-items:flex-start}
+.set-sync b{font-size:15.5px}.set-sync p{margin:3px 0 0}
+.set-ic{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;background:var(--line);color:var(--ink-2);flex:none}
+.set-sync.good .set-ic{background:var(--good-soft);color:var(--good)}
+.set-sync.warn .set-ic{background:var(--warn-soft);color:var(--warn)}
+.set-actions{display:flex;flex-wrap:wrap;gap:8px}
+.opt.wide{width:100%;flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:2px}
+.opt.wide .ms{margin:0}
+.opt.wide span{flex-basis:100%;padding-left:38px}
+
+/* ---------- phone polish ---------- */
+button,a,label,.chip,.dock-item{touch-action:manipulation}
+@media (max-width:759px){.sheet{bottom:var(--kb,0px);max-height:calc(92dvh - var(--kb,0px))}}
+body.sheet-open .snack{bottom:auto;top:calc(14px + env(safe-area-inset-top,0px));transform:translate(-50%,-16px)}
+body.sheet-open .snack.show{transform:translate(-50%,0)}
+@media (max-width:760px){
+  .glass{-webkit-backdrop-filter:blur(14px) saturate(1.35);backdrop-filter:blur(14px) saturate(1.35)}
+  .sheet{-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4)}
+  .set-actions .btn{flex:1 1 auto}
+}
+@media (prefers-reduced-motion:reduce){.gate-card{animation:none}}

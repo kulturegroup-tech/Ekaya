@@ -8,6 +8,7 @@
 //   DELETE /api/gallery/:id/photos/:k        (admin) remove a photo
 import { getStore } from "@netlify/blobs";
 import { webcrypto } from "node:crypto";
+import { workspace, session } from "../lib/auth.mjs";
 
 const store = () => getStore({ name: "ekaya-gallery", consistency: "strong" });
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
@@ -26,6 +27,7 @@ export default async (req) => {
   try {
     if (!id) {
       if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+      if ((await workspace()) && !(await session(req))) return json({ error: "Sign in to your Ekaya workspace to create a photo wall." }, 401);
       const body = await req.json().catch(() => ({}));
       const gid = rid(12), key = rid(28);
       const meta = {

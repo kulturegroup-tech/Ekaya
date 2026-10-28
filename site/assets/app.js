@@ -3,6 +3,10 @@
 'use strict';
 const {$, $$, esc, icon, uid, inr, num, okHex, S, Store} = E;
 const {toast, save, openSheet, closeSheet, val} = E;
+const sheetIs = id => E.sheetId() === id;
+const MODEKEY = 'ekaya-mode', IMPKEY = 'ekaya-imported-v1';
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet = (k, v) => { try{ if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){} };
 
 /* ---------- render ---------- */
 let lastKey = '';
@@ -13,13 +17,15 @@ const BUDGET_SUB = [['collect','payments','Collections'],['expenses','receipt_lo
 E.render = function render(){
   const ev = E.curEv();
   if(S.cur && S.evLoaded && !ev && S.cur !== S.justCreated){ goHome(); return; }
-  document.body.classList.toggle('in-event', !!S.cur);
+  document.body.classList.toggle('in-event', !!S.cur && !S.gate);
+  document.body.classList.toggle('gating', !!S.gate);
   renderTop(ev); renderDock(); renderSide(ev);
   let html;
-  if(!S.cur) html = homeView();
+  if(S.gate) html = gateView();
+  else if(!S.cur) html = homeView();
   else if(!ev) html = `<div class="invite glass skel"></div>`;
   else html = ({overview:overviewView, guests:guestsView, plan:planView, budget:budgetView, photos:E.photos.view}[S.tab] || overviewView)(ev);
-  const key = (S.cur || 'home') + ':' + S.tab + ':' + (S.sub[S.tab] || '');
+  const key = S.gate ? 'gate:' + S.gate : (S.cur || 'home') + ':' + S.tab + ':' + (S.sub[S.tab] || '');
   swapView(html, key !== lastKey);
   lastKey = key;
   afterRender(ev);
@@ -37,34 +43,57 @@ function afterRender(ev){
   if(host && ev) E.venue.attach(host, ev.id, S.venue.find(v => v.id === 'main'));
   if(S.cur && S.tab === 'photos' && ev) E.photos.after(ev);
 }
-function syncChip(){
-  if(Store.mode === 'loading') return `<span class="tag">Opening…</span>`;
-  if(Store.mode === 'local') return `<span class="tag" title="Saved in this browser">${icon('mobile')}This device</span>`;
+/* sync status: a chip on home and in the sidebar, an icon in the event top bar only when something needs attention */
+function chipInner(){
+  const m = Store.mode;
+  if(m === 'loading') return S.gate ? '' : `<span class="tag">Opening…</span>`;
+  if(m === 'local') return `<button class="tag" data-act="settings" title="Saved in this browser only">${icon('mobile')}This device</button>`;
+  if(m === 'remote'){
+    const st = E.Remote.state();
+    if(!st.online) return `<button class="tag warn" data-act="settings" title="Changes are saved here and will sync when you’re back online">${icon('cloud_off')}${st.pending ? `Offline · ${st.pending}` : 'Offline'}</button>`;
+    if(st.pending || !st.lastSync) return `<button class="tag" data-act="settings">${icon('sync')}Syncing</button>`;
+    return `<button class="tag good" data-act="settings" title="Everything is saved and synced">${icon('cloud_done')}Synced</button>`;
+  }
   if(!S.canWrite) return `<span class="tag">View only</span>`;
   return `<span class="tag good" title="Changes sync for everyone with edit access">${icon('cloud_done')}Live</span>`;
 }
+function iconInner(){
+  if(Store.mode !== 'remote') return '';
+  const st = E.Remote.state();
+  if(!st.online) return `<button class="icon-btn warn-ic" data-act="settings" aria-label="Offline${st.pending ? `, ${st.pending} changes waiting to sync` : ''}">${icon('cloud_off')}</button>`;
+  return '';
+}
+const syncChip = () => `<span class="sc">${chipInner()}</span>`;
+E.onSyncState = () => {
+  const c = chipInner(), i = iconInner();
+  $$('.sc').forEach(n => { if(n.innerHTML !== c) n.innerHTML = c; });
+  $$('.sci').forEach(n => { if(n.innerHTML !== i) n.innerHTML = i; });
+  if(sheetIs('settings')) E.refreshSheet();
+};
+E.onAuthLost = () => { signedOut(); toast('Please sign in again to keep syncing.', 'lock'); };
 const themeIcon = () => ({auto:'contrast', light:'light_mode', dark:'dark_mode'})[E.getTheme()];
 function renderTop(ev){
   const t = $('#topbar');
-  if(!S.cur){ t.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div><div class="grow"></div>${syncChip()}<button class="icon-btn" data-act="theme" aria-label="Change theme">${icon(themeIcon())}</button>`; return; }
+  if(S.gate){ t.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div><div class="grow"></div><button class="icon-btn" data-act="theme" aria-label="Change theme">${icon(themeIcon())}</button>`; return; }
+  if(!S.cur){ t.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div><div class="grow"></div>${syncChip()}<button class="icon-btn" data-act="settings" aria-label="Settings">${icon('settings')}</button>`; return; }
   const n = ev ? E.daysUntil(ev.date) : null;
   t.innerHTML = `<button class="icon-btn" data-act="home" aria-label="All events">${icon('arrow_back')}</button>
     <div class="top-title"><b>${esc(ev ? ev.name : '')}</b>${ev && ev.date ? `<small>${n === 0 ? 'TODAY' : n > 0 ? `${n} ${n === 1 ? 'DAY' : 'DAYS'} TO GO` : E.fmtShort(ev.date).toUpperCase()}</small>` : ''}</div>
-    ${S.canWrite && ev ? `<button class="icon-btn" data-act="edit-event" aria-label="Edit event">${icon('edit')}</button>` : ''}`;
+    <span class="sci">${iconInner()}</span>${S.canWrite && ev ? `<button class="icon-btn" data-act="edit-event" aria-label="Edit event">${icon('edit')}</button>` : ''}`;
 }
 function renderDock(){
-  const d = $('#dock'); d.hidden = !S.cur; if(!S.cur) return;
+  const d = $('#dock'); d.hidden = !S.cur || !!S.gate; if(d.hidden) return;
   d.innerHTML = TABS.map(([k, ic, l]) => `<button class="dock-item" data-act="tab" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}><span class="pill">${icon(ic, S.tab === k)}</span><span>${l}</span></button>`).join('');
 }
 function renderSide(ev){
   const s = $('#sidebar');
-  if(!S.cur || !ev){ s.innerHTML = ''; return; }
+  if(!S.cur || !ev || S.gate){ s.innerHTML = ''; return; }
   const n = E.daysUntil(ev.date), t = E.TYPES[ev.type] || E.TYPES.party;
   s.innerHTML = `<div class="brand"><span class="wordmark">ekaya</span><span class="brand-tag">Events</span></div>
     <button class="btn text sm" data-act="home" style="align-self:flex-start;margin-left:-12px">${icon('arrow_back')}All events</button>
     <div class="side-event"><span class="eyebrow gold">${icon(t.icon, false, 'sm')} ${esc(t.label)}</span><b>${esc(ev.name)}</b><span class="muted small">${ev.date ? `${E.fmtMed(ev.date)}${n != null && n >= 0 ? ` · ${n === 0 ? 'today' : `${n} ${n === 1 ? 'day' : 'days'} to go`}` : ''}` : 'Date not set'}</span></div>
     <nav class="side-nav" aria-label="Event sections">${TABS.map(([k, ic, l]) => `<button class="side-item" data-act="tab" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${icon(ic, S.tab === k)}${l}</button>`).join('')}</nav>
-    <div class="side-foot">${syncChip()}<span class="grow"></span>${S.canWrite ? `<button class="icon-btn" data-act="edit-event" aria-label="Edit event">${icon('edit')}</button>` : ''}<button class="icon-btn" data-act="theme" aria-label="Change theme">${icon(themeIcon())}</button></div>`;
+    <div class="side-foot">${syncChip()}<span class="grow"></span>${S.canWrite ? `<button class="icon-btn" data-act="edit-event" aria-label="Edit event">${icon('edit')}</button>` : ''}<button class="icon-btn" data-act="settings" aria-label="Settings">${icon('settings')}</button></div>`;
 }
 const segBar = (tab, items) => `<div class="seg" role="tablist">${items.map(([k, ic, l]) => `<button role="tab" data-act="sub" data-tab="${tab}" data-sub="${k}" aria-selected="${S.sub[tab] === k}">${icon(ic)}${l}</button>`).join('')}</div>`;
 const strip = e => { const p = e.theme?.palette || []; return p.length ? `<div class="strip" aria-hidden="true">${p.map(c => `<i style="--c:${okHex(c.hex)}"></i>`).join('')}</div>` : ''; };
@@ -75,12 +104,12 @@ const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Good e
 function homeView(){
   const dateLine = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'});
   const head = sub => `<section class="hello"><p class="eyebrow gold">${dateLine}</p><h1 class="display">${greeting()},<br><em>Ekta</em></h1><p class="sub">${sub}</p></section>`;
-  if(Store.mode === 'loading') return head('Opening your events…') + `<div class="ev-list"><div class="invite glass skel"></div><div class="invite glass skel"></div></div>`;
+  if(Store.mode === 'loading' || !S.evLoaded) return head('Opening your events…') + `<div class="ev-list"><div class="invite glass skel"></div><div class="invite glass skel"></div></div>`;
   const evs = [...S.events].sort(byDate);
   const up = evs.filter(e => !e.date || E.daysUntil(e.date) >= 0), past = evs.filter(e => e.date && E.daysUntil(e.date) < 0).reverse();
   const next = up.find(e => e.date);
   const sub = up.length ? `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works${next ? ` · ${esc(next.name)} ${(n => n === 0 ? 'is today' : n === 1 ? 'is tomorrow' : `in ${n} days`)(E.daysUntil(next.date))}` : ''}.` : 'Nothing on the calendar yet.';
-  return head(sub) + (up.length ? `<div class="ev-list">${up.map(invite).join('')}${S.canWrite ? newTile() : ''}</div>` : homeEmpty())
+  return head(sub) + localOfferCard() + (up.length ? `<div class="ev-list">${up.map(invite).join('')}${S.canWrite ? newTile() : ''}</div>` : homeEmpty())
     + (past.length ? `<div class="section-label"><span class="eyebrow">Past events</span></div><div class="ev-list">${past.map(invite).join('')}</div>` : '');
 }
 function invite(e){
@@ -418,7 +447,7 @@ function planView(ev){
   const body = sub === 'mood' ? moodBlock(ev) : sub === 'tasks' ? tasksBlock(ev) : `<div id="vz-host"></div>`;
   return head + segBar('plan', PLAN_SUB) + body;
 }
-E.imgSrc = m => m.asset ? '/_blob/' + m.asset : (m.src || '');
+E.imgSrc = m => m.img ? '/api/data/img/' + m.img : m.asset ? '/_blob/' + m.asset : (m.src || '');
 function moodBlock(ev){
   const th = ev.theme || {}, palette = th.palette || [], items = [...S.mood].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return `<section class="theme-card glass foil"><div class="card-h"><div><p class="eyebrow">Theme</p><div class="theme-name">${esc(th.name || 'Untitled theme')}</div>${th.dress ? `<p class="dress">${icon('styler')}Dress code · ${esc(th.dress)}</p>` : ''}</div>${S.canWrite ? `<button class="btn text sm" data-act="edit-theme">${icon('edit')}Edit</button>` : ''}</div>
@@ -542,13 +571,153 @@ async function addPhotos(files){
   for(const f of files){
     try{
       const item = {kind:'image', caption:'', createdAt:Date.now()};
-      if(S.assets){ let blob = f; if(f.size > 2.5e6 || !/^image\/(png|jpeg|gif|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 2000), 0.86); item.asset = (await S.assets.upload(blob, {type:blob.type || 'image/jpeg'})).id; }
+      if(Store.mode === 'remote'){ let blob = f; if(f.size > 1.6e6 || !/^image\/(png|jpeg|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 1800), 0.85); item.img = await E.Remote.uploadImage(blob); }
+      else if(S.assets){ let blob = f; if(f.size > 2.5e6 || !/^image\/(png|jpeg|gif|webp)$/.test(f.type)) blob = await E.toBlob(await E.scaled(f, 2000), 0.86); item.asset = (await S.assets.upload(blob, {type:blob.type || 'image/jpeg'})).id; }
       else { const cloud = Store.mode === 'cloud'; let d = (await E.scaled(f, cloud ? 1100 : 820)).toDataURL('image/jpeg', cloud ? 0.74 : 0.66); if(d.length > 230000) d = (await E.scaled(f, 680)).toDataURL('image/jpeg', 0.6); item.src = d; }
       if(await save(Store.set(E.evPath('mood', 'm' + uid()), item))) ok++; else break;
-    }catch(e){ console.warn(e); toast('Couldn’t add that photo. Try a JPG or PNG.', 'warning'); }
+    }catch(e){ console.warn(e); toast(Store.mode === 'remote' && !navigator.onLine ? 'Photos need a connection. Try again when you’re online.' : 'Couldn’t add that photo. Try a JPG or PNG.', 'warning'); if(!navigator.onLine) break; }
   }
   if(ok) toast(ok === 1 ? 'Photo added to the board' : `${ok} photos added to the board`, 'add_photo_alternate');
 }
+
+/* ---------- workspace: sign in, settings, device data ---------- */
+function gateView(){
+  const setup = S.gate === 'setup';
+  return `<section class="gate">
+    <div class="gate-card glass foil">
+      <div class="gate-mark" aria-hidden="true">${icon(setup ? 'wand_stars' : 'lock')}</div>
+      <p class="eyebrow gold">${setup ? 'Welcome to Ekaya' : 'Welcome back'}</p>
+      <h1 class="display">${setup ? 'Set up your <em>workspace</em>' : `Sign in to <em>${esc(S.owner || 'Ekaya')}</em>`}</h1>
+      <p class="sub">${setup ? 'Choose one passcode. Use it on your phone, laptop or a helper’s device, and every guest, payment and plan stays in sync.' : 'Enter the workspace passcode to open your events on this device.'}</p>
+      <form id="gateForm" class="gate-form" novalidate>
+        <input type="text" name="username" autocomplete="username" value="ekaya" tabindex="-1" aria-hidden="true" class="vh">
+        ${setup ? `<label class="field"><span>Workspace name</span><input class="input" id="gt-owner" value="${esc(S.owner || 'Ekaya')}" maxlength="40" autocomplete="organization"></label>` : ''}
+        <label class="field"><span>Passcode</span><div class="pass-in"><input class="input" id="gt-pass" type="password" minlength="6" autocomplete="${setup ? 'new-password' : 'current-password'}" placeholder="${setup ? 'At least 6 characters' : ''}" data-autofocus><button type="button" class="icon-btn" data-act="peek" aria-label="Show passcode">${icon('visibility')}</button></div></label>
+        ${setup ? `<label class="field"><span>Type it again</span><input class="input" id="gt-pass2" type="password" autocomplete="new-password"></label>` : ''}
+        <p class="gate-err" id="gt-err" role="alert" hidden></p>
+        <button class="btn gold" id="gt-go" type="submit">${setup ? `${icon('check')}Create workspace` : `${icon('login')}Sign in`}</button>
+      </form>
+      <div class="gate-foot"><button class="btn text sm" data-act="use-local">Use on this device only</button></div>
+    </div>
+    <p class="hint-s gate-note">${setup ? 'Write the passcode down somewhere safe. Anyone with it can see and edit your events.' : 'Forgot it? Ask whoever set up the workspace.'}</p>
+  </section>`;
+}
+async function gateSubmit(){
+  const setup = S.gate === 'setup', pass = $('#gt-pass').value, err = $('#gt-err'), go = $('#gt-go'), label = go.innerHTML;
+  const fail = m => { err.textContent = m; err.hidden = false; go.disabled = false; go.innerHTML = label; E.vibrate(20); };
+  err.hidden = true;
+  if(pass.length < 6) return fail('Use at least 6 characters.');
+  if(setup && pass !== $('#gt-pass2').value) return fail('The two passcodes don’t match.');
+  go.disabled = true; go.textContent = setup ? 'Creating…' : 'Signing in…';
+  try{ if(setup) await E.Remote.setup(val(document, '#gt-owner') || 'Ekaya', pass); else await E.Remote.login(pass); }
+  catch(x){ return fail(navigator.onLine ? x.message : 'You’re offline. Connect to the internet to sign in.'); }
+  lsSet(MODEKEY, null);
+  S.gate = null; Store.init('remote');
+  if(setup) await firstWorkspaceData();
+  startData();
+  toast(setup ? 'Workspace ready. Use the same passcode on your other devices.' : 'Signed in. Your events are syncing.', 'cloud_done');
+}
+/* events saved only in this browser, beyond an untouched sample */
+function localExtras(){
+  const docs = Store.localDocs(), evs = docs.filter(d => d.path.split('/').length === 2);
+  const meaningful = evs.length > 1 || evs.some(d => d.path !== 'events/diwali-party') || docs.some(d => /\/(people|expenses|mood|venue)\//.test(d.path) || (/\/tasks\//.test(d.path) && d.data.done));
+  return {docs, evs, meaningful};
+}
+async function importLocal(silent){
+  const {docs} = localExtras();
+  if(!docs.length) return 0;
+  const n = await E.Remote.importDocs(docs);
+  lsSet(IMPKEY, String(Date.now())); S.localOffer = false;
+  E.Remote.syncNow();
+  if(!silent) toast(n ? `${n} ${n === 1 ? 'item' : 'items'} added to your workspace` : 'Everything here was already in your workspace', 'cloud_upload');
+  return n;
+}
+async function firstWorkspaceData(){
+  const {evs} = localExtras();
+  if(evs.length){ try{ await importLocal(true); return; }catch(e){ console.warn(e); } }
+  await seedSample();
+}
+async function seedSample(){
+  if(E.today() > '2026-11-08') return;
+  const now = Date.now();
+  await Store.set('events/diwali-party', E.eventFromTemplate('diwali', {name:'Diwali Party', date:'2026-11-08', createdAt:now}));
+  for(const t of E.tasksFromTemplate('diwali', now)) await Store.set(`events/diwali-party/tasks/${t.id}`, t.data);
+}
+function localOfferCard(){
+  if(!S.localOffer || Store.mode !== 'remote') return '';
+  return `<section class="offer glass"><span class="empty-ic">${icon('cloud_upload')}</span><div class="grow"><b>Events saved only on this device</b><p class="muted small">Add them to your workspace so they show up everywhere. Nothing already there gets replaced.</p></div>
+    <div class="offer-act"><button class="btn sm gold" data-act="import-local">Add them</button><button class="btn text sm" data-act="dismiss-local">Not now</button></div></section>`;
+}
+const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 10 ? 'just now' : s < 60 ? `${s} seconds ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : new Date(t).toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit'}); };
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if(sheetIs('settings')) E.refreshSheet(); });
+window.addEventListener('appinstalled', () => { installEvt = null; toast('Ekaya is on your home screen', 'add_home'); });
+function settingsBody(){
+  const m = Store.mode, th = E.getTheme();
+  let sync = '';
+  if(m === 'remote'){
+    const st = E.Remote.state();
+    const [ic, cls, head, line] = !st.online ? ['cloud_off', 'warn', 'Offline', st.pending ? `${st.pending} ${st.pending === 1 ? 'change is' : 'changes are'} saved on this device and will sync when you’re back online.` : 'You can keep working. Changes sync when you’re back online.']
+      : st.pending ? ['sync', '', 'Syncing', `${st.pending} ${st.pending === 1 ? 'change' : 'changes'} on the way.`]
+      : ['cloud_done', 'good', 'All changes synced', st.lastSync ? `Last checked ${ago(st.lastSync)}. Other devices catch up within seconds while you’re working.` : 'Connecting…'];
+    sync = `<div class="panel set-sync ${cls}"><div class="row-flex"><span class="set-ic">${icon(ic)}</span><div class="grow"><b>${head}</b><p class="muted small">${line}</p></div></div>
+      <div class="kv"><div><span>Workspace</span><b>${esc(E.Remote.owner() || 'Ekaya')}</b></div><div><span>This device</span><b>${esc(E.Remote.device())}</b></div></div>
+      <div class="set-actions"><button class="btn ghost sm" data-act="sync-now">${icon('sync')}Sync now</button><button class="btn ghost sm" data-act="change-pass">${icon('password')}Change passcode</button><button class="btn danger-text sm" data-act="sign-out">${icon('logout')}Sign out</button></div></div>
+      ${localExtras().evs.length && !lsGet(IMPKEY) ? `<button class="opt wide" data-act="import-local">${icon('cloud_upload')}<b>Add this device’s events</b><span>Copies events saved only in this browser into the workspace. Nothing already there gets replaced.</span></button>` : ''}`;
+  } else if(m === 'local'){
+    sync = `<div class="panel set-sync"><div class="row-flex"><span class="set-ic">${icon('mobile')}</span><div class="grow"><b>Saved on this device only</b><p class="muted small">Turn on sync to use Ekaya on your phone and laptop together, with a helper, or after clearing this browser.</p></div></div>
+      ${E.onNetlify() ? `<div class="set-actions"><button class="btn gold sm" data-act="turn-on-sync">${icon('cloud_sync')}Turn on sync</button></div>` : ''}</div>`;
+  } else sync = `<div class="panel set-sync good"><div class="row-flex"><span class="set-ic">${icon('cloud_done')}</span><div class="grow"><b>Live</b><p class="muted small">Changes sync for everyone with edit access.</p></div></div></div>`;
+  const install = standalone() ? `<p class="hint">${icon('check_circle')}<span>Ekaya is installed on this device.</span></p>`
+    : installEvt ? `<button class="opt wide" data-act="install">${icon('add_home')}<b>Install Ekaya</b><span>Opens full screen from your home screen, like an app.</span></button>`
+    : isIOS() ? `<p class="hint">${icon('ios_share')}<span>To add Ekaya to your home screen, tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span></p>`
+    : `<p class="hint">${icon('add_home')}<span>To install, open your browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</span></p>`;
+  return `<div class="section-label"><span class="eyebrow">Sync</span></div>${sync}
+    <div class="section-label"><span class="eyebrow">Appearance</span></div>
+    <div class="seg" role="radiogroup" aria-label="Theme">${[['auto','contrast','Auto'],['light','light_mode','Ivory'],['dark','dark_mode','Noir']].map(([k, ic, l]) => `<button role="radio" data-act="set-theme" data-t="${k}" aria-selected="${th === k}" aria-checked="${th === k}">${icon(ic)}${l}</button>`).join('')}</div>
+    <div class="section-label"><span class="eyebrow">On your phone</span></div>${install}`;
+}
+const settingsSheet = () => openSheet({id:'settings', title:'Settings', body:settingsBody(), refresh: b => { const y = $('#sheet').scrollTop; b.innerHTML = settingsBody(); $('#sheet').scrollTop = y; }});
+function passSheet(){
+  openSheet({id:'pass', title:'Change passcode', body:`<p class="muted">Other devices will be signed out and need the new passcode.</p>
+    <input type="text" name="username" autocomplete="username" value="ekaya" tabindex="-1" aria-hidden="true" class="vh">
+    <label class="field"><span>Current passcode</span><input class="input" type="password" id="cp-cur" autocomplete="current-password" data-autofocus></label>
+    <label class="field"><span>New passcode</span><input class="input" type="password" id="cp-new" autocomplete="new-password" placeholder="At least 6 characters"></label>
+    <label class="field"><span>Type it again</span><input class="input" type="password" id="cp-new2" autocomplete="new-password"></label>
+    <p class="gate-err" id="cp-err" role="alert" hidden></p>
+    <div class="sheet-foot"><button class="btn ghost" data-act="settings">Back</button><button class="btn" id="cp-go">Change passcode</button></div>`,
+  mount: b => { $('#cp-go', b).addEventListener('click', async () => {
+    const cur = $('#cp-cur', b).value, nx = $('#cp-new', b).value, err = $('#cp-err', b), go = $('#cp-go', b);
+    const fail = m => { err.textContent = m; err.hidden = false; go.disabled = false; };
+    if(nx.length < 6) return fail('Use at least 6 characters for the new passcode.');
+    if(nx !== $('#cp-new2', b).value) return fail('The new passcodes don’t match.');
+    go.disabled = true;
+    try{ const r = await E.Remote.changePasscode(cur, nx); closeSheet(); toast(r.signedOut ? `Passcode changed. ${r.signedOut} other ${r.signedOut === 1 ? 'device was' : 'devices were'} signed out.` : 'Passcode changed', 'password'); }
+    catch(x){ fail(x.message); }
+  }); }});
+}
+function signOutSheet(){
+  const n = E.Remote.state().pending;
+  openSheet({id:'signout', title:'Sign out?', body:`<p class="muted">${n ? `<b>${n} ${n === 1 ? 'change hasn’t' : 'changes haven’t'} synced yet</b> and will be lost if you sign out now. Connect to the internet first to keep ${n === 1 ? 'it' : 'them'}.` : 'Your events stay safe in the workspace. Sign in again any time with the passcode.'}</p>
+    <div class="sheet-foot"><button class="btn ghost" data-act="settings">Cancel</button><button class="btn danger" id="so-go">${icon('logout')}Sign out</button></div>`,
+  mount: b => { $('#so-go', b).addEventListener('click', async () => { $('#so-go', b).disabled = true; await E.Remote.logout(); closeSheet(); signedOut(); toast('Signed out of this device', 'logout'); }); }});
+}
+let evUnsub = null;
+function resetData(){
+  stopEventSubs(); E.venue.reset(); E.photos.reset();
+  if(evUnsub){ try{ evUnsub(); }catch(e){} evUnsub = null; }
+  Object.assign(S, {cur:null, events:[], evLoaded:false, people:[], expenses:[], mood:[], tasks:[], venue:[], loaded:{}, localOffer:false});
+  Store.reset();
+}
+function signedOut(){ resetData(); closeSheet(); S.gate = 'login'; E.render(); window.scrollTo(0, 0); }
+async function toGate(){
+  let st; try{ st = await E.Remote.status(); }catch(e){ toast('Couldn’t reach the sync service. Check your connection.', 'cloud_off'); return; }
+  closeSheet(); resetData(); S.owner = st.owner; S.gate = st.setup ? 'login' : 'setup'; E.render(); window.scrollTo(0, 0);
+}
+function useLocal(){ lsSet(MODEKEY, 'local'); S.gate = null; Store.init(null); seedLocal().then(startData); }
+async function seedLocal(){ if(lsGet('ekaya-seeded-v1')) return; lsSet('ekaya-seeded-v1', '1'); try{ await seedSample(); }catch(e){ console.warn(e); } }
 
 /* ---------- navigation & data ---------- */
 let subUnsubs = [];
@@ -599,11 +768,23 @@ document.addEventListener('click', e => {
     case 'toggle-task': { const k = S.tasks.find(y => y.id === id); if(k && S.canWrite){ save(Store.update(E.evPath('tasks', id), {done:!k.done, doneAt:k.done ? 0 : Date.now()})); E.vibrate(6); } break; }
     case 'task': { const k = S.tasks.find(y => y.id === id); if(k) taskSheet(k); break; }
     case 'done-toggle': S.doneOpen = !S.doneOpen; E.render(); break;
+    case 'settings': settingsSheet(); break;
+    case 'set-theme': E.setTheme(t.dataset.t); E.render(); E.refreshSheet(); break;
+    case 'sync-now': E.Remote.syncNow().then(() => { E.refreshSheet(); if(E.Remote.state().online) toast('Up to date', 'cloud_done'); }); break;
+    case 'change-pass': passSheet(); break;
+    case 'sign-out': signOutSheet(); break;
+    case 'turn-on-sync': toGate(); break;
+    case 'use-local': useLocal(); break;
+    case 'import-local': t.disabled = true; importLocal().catch(x => { t.disabled = false; toast(navigator.onLine ? x.message : 'Connect to the internet to add them.', 'warning'); }).finally(() => { E.render(); E.refreshSheet(); }); break;
+    case 'dismiss-local': lsSet(IMPKEY, 'dismissed'); S.localOffer = false; E.render(); break;
+    case 'install': if(installEvt){ installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; E.refreshSheet(); }); } break;
+    case 'peek': { const inp = t.parentElement.querySelector('input'); const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; t.innerHTML = icon(show ? 'visibility_off' : 'visibility'); t.setAttribute('aria-label', show ? 'Hide passcode' : 'Show passcode'); inp.focus({preventScroll:true}); break; }
     default: if(act.startsWith('wall-') || act === 'photo') E.photos.act(act, t, ev);
   }
 });
 document.addEventListener('input', e => { if(e.target.id === 'g-search'){ S.query = e.target.value; E.render(); } });
 document.addEventListener('submit', async e => {
+  if(e.target.id === 'gateForm'){ e.preventDefault(); gateSubmit(); return; }
   if(e.target.id !== 'addTask') return; e.preventDefault();
   const tx = $('#taskText'), du = $('#taskDue'), text = tx.value.trim(); if(!text || !S.cur) return;
   const order = S.tasks.reduce((a, t) => Math.max(a, +t.order || 0), 0) + 1; tx.value = ''; const due = du.value; du.value = '';
@@ -620,22 +801,47 @@ document.addEventListener('paste', e => { if(S.tab !== 'plan' || S.sub.plan !== 
   else { board.classList.remove('board-drop'); if(type === 'drop' && e.dataTransfer?.files?.length){ e.preventDefault(); addPhotos(e.dataTransfer.files); } }
 }));
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => E.render());
+/* phones: keep sheets above the on-screen keyboard and the focused field in view */
+if(window.visualViewport){
+  const vv = visualViewport, root = document.documentElement;
+  const kb = () => { const h = Math.max(0, innerHeight - vv.height - vv.offsetTop); root.style.setProperty('--kb', h > 80 ? Math.round(h) + 'px' : '0px'); };
+  vv.addEventListener('resize', kb); vv.addEventListener('scroll', kb);
+}
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if(innerWidth < 760 && el.matches && el.matches('.sheet input:not([type=checkbox]):not([type=radio]), .sheet textarea, .sheet select, .gate input'))
+    setTimeout(() => { if(document.activeElement === el){ try{ el.scrollIntoView({block:'center', behavior:'smooth'}); }catch(x){} } }, 320);
+});
 
 /* ---------- boot ---------- */
+function startData(){
+  if(evUnsub){ try{ evUnsub(); }catch(e){} }
+  S.evLoaded = false; S.events = [];
+  evUnsub = Store.subscribe('events', rows => { S.events = rows; S.evLoaded = true; if(Store.mode === 'remote') E.Remote.warm(rows.flatMap(r => ['people','expenses','mood','tasks','venue'].map(k => `events/${r.id}/${k}`))); if(S.justCreated && rows.some(r => r.id === S.justCreated)) S.justCreated = null; render(); E.refreshSheet(); }, onSubErr);
+  S.localOffer = Store.mode === 'remote' && !lsGet(IMPKEY) && localExtras().meaningful;
+  const nav = loadNav();
+  if(nav && nav.cur){ S.sub = Object.assign(S.sub, nav.sub || {}); openEvent(nav.cur, nav.tab || 'overview'); } else render();
+}
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 async function boot(){
   E.render();
   let db = null, user = null, assets = null;
   if(window.claude && typeof window.claude.use === 'function'){ try{ [db, user, assets] = await Promise.all([claude.use('db'), claude.use('user'), claude.use('assets')]); }catch(e){ console.warn(e); } }
-  Store.init(db); S.assets = assets;
-  if(db){ let can = null; try{ can = user ? await user.can('data.write') : null; }catch(e){} S.canWrite = can !== false; }
-  else {
-    let seeded = true; try{ seeded = !!localStorage.getItem('ekaya-seeded-v1'); }catch(e){}
-    if(!seeded && E.today() <= '2026-11-08'){ try{ localStorage.setItem('ekaya-seeded-v1', '1'); const now = Date.now(); await Store.set('events/diwali-party', E.eventFromTemplate('diwali', {name:'Diwali Party', date:'2026-11-08', createdAt:now})); for(const t of E.tasksFromTemplate('diwali', now)) await Store.set(`events/diwali-party/tasks/${t.id}`, t.data); }catch(e){ console.warn(e); } }
+  if(db){
+    Store.init(db); S.assets = assets;
+    let can = null; try{ can = user ? await user.can('data.write') : null; }catch(e){} S.canWrite = can !== false;
+    return startData();
   }
-  Store.subscribe('events', rows => { S.events = rows; S.evLoaded = true; if(S.justCreated && rows.some(r => r.id === S.justCreated)) S.justCreated = null; render(); E.refreshSheet(); }, onSubErr);
-  const nav = loadNav();
-  if(nav && nav.cur){ S.sub = Object.assign(S.sub, nav.sub || {}); openEvent(nav.cur, nav.tab || 'overview'); } else render();
+  if(E.onNetlify() && E.Remote){
+    if(E.Remote.token()){ Store.init('remote'); return startData(); }
+    if(lsGet(MODEKEY) !== 'local'){
+      try{ const st = await withTimeout(E.Remote.status(), 8000); S.owner = st.owner; S.gate = st.setup ? 'login' : 'setup'; E.render(); return; }
+      catch(e){ console.warn('Sync service unavailable, using this device', e); }
+    }
+  }
+  Store.init(null); await seedLocal(); startData();
 }
+if('serviceWorker' in navigator && E.onNetlify() && location.protocol === 'https:') addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(e => console.warn(e)));
 E.openEvent = openEvent;
 boot();
 })();

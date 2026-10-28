@@ -3,7 +3,7 @@
 'use strict';
 const {$, esc, icon, okHex, S, Store} = E;
 const P = {id:null, data:null, loading:false, err:null, at:0, timer:null};
-const api = (path, opts={}) => fetch('/api/gallery' + path, opts).then(async r => { const j = await r.json().catch(() => ({})); if(!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), {status:r.status}); return j; });
+const api = (path, opts={}) => fetch('/api/gallery' + path, {...opts, headers:{...(opts.headers || {}), ...(E.Remote ? E.Remote.authHeader() : {})}}).then(async r => { const j = await r.json().catch(() => ({})); if(!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), {status:r.status}); return j; });
 const guestUrl = id => `${location.origin}/g/?e=${encodeURIComponent(id)}`;
 const thumb = (id, k) => `/api/gallery/${id}/photos/${k}?s=t`;
 const full = (id, k) => `/api/gallery/${id}/photos/${k}`;
