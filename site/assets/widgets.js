@@ -28,36 +28,37 @@ function phrase(name, events){
   return pool[seed % pool.length].replace('{n}', esc(name));
 }
 
-/* ---------- clock ---------- */
+/* ---------- clock: a foil dial whose hands sweep on their own (CSS animations started at the right moment) ---------- */
 const clockHtml = () => {
+  const d = new Date(), sec = d.getSeconds() + d.getMilliseconds() / 1000, min = d.getMinutes() + sec / 60, hr = (d.getHours() % 12) + min / 60;
   let ticks = '';
-  for(let i = 0; i < 12; i++){ const a = i * 30; if(i === 0) continue; ticks += `<line x1="60" y1="${i % 3 ? 11 : 9}" x2="60" y2="${i % 3 ? 15 : 17}" transform="rotate(${a} 60 60)" class="tk${i % 3 ? '' : ' big'}"/>`; }
-  return `<section class="w-card w-clock stock" aria-label="Clock">
-    <svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
-      <circle cx="60" cy="60" r="56" fill="none" stroke="url(#foil)" stroke-width="1.6"/>
-      <circle cx="60" cy="60" r="51.5" fill="none" class="ring2"/>
-      ${ticks}
-      <path transform="translate(60 14) scale(.42)" d="M0-15C6-7 7 2 0 8-7 2-6-7 0-15Z" fill="url(#foil)"/>
-      <line id="w-hh" x1="60" y1="60" x2="60" y2="34" class="hh"/>
-      <line id="w-mh" x1="60" y1="60" x2="60" y2="20" class="mh"/>
-      <line id="w-sh" x1="60" y1="68" x2="60" y2="16" class="sh"/>
-      <circle cx="60" cy="60" r="3.4" fill="url(#foil)"/>
+  for(let i = 0; i < 60; i++){ if(i % 15 === 0) continue; const big = i % 5 === 0; ticks += `<line x1="60" y1="${big ? 9 : 9.5}" x2="60" y2="${big ? 15 : 12}" transform="rotate(${i * 6} 60 60)" class="tk${big ? ' big' : ''}"/>`; }
+  const num = (t, x, y) => `<text x="${x}" y="${y}" class="num" text-anchor="middle" dominant-baseline="central">${t}</text>`;
+  const t = d.toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit', hour12:true}).split(' ');
+  return `<section class="tile t-clock fx fx-edge" style="--i:1" aria-label="Clock">
+    <div class="clock-in"><svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
+      <circle cx="60" cy="60" r="57" class="face"/>
+      <circle cx="60" cy="60" r="57" fill="none" stroke="url(#foil)" stroke-width="2"/>
+      <circle cx="60" cy="60" r="52" fill="none" class="ring2"/>
+      ${ticks}${num('3', 99, 60)}${num('6', 60, 100)}${num('9', 21, 60)}
+      <path transform="translate(60 18) scale(.5)" d="M0-15C6-7 7 2 0 8-7 2-6-7 0-15Z" fill="url(#foil)"/>
+      <g class="hand hh" style="animation-delay:-${(hr * 3600).toFixed(1)}s"><path d="M60 66L58 60L60 33L62 60Z" class="hp"/></g>
+      <g class="hand mh" style="animation-delay:-${(min * 60).toFixed(1)}s"><path d="M60 68L58.6 60L60 18L61.4 60Z" class="mp"/></g>
+      <g class="hand sh" style="animation-delay:-${sec.toFixed(2)}s"><line x1="60" y1="72" x2="60" y2="14" class="sp"/><circle cx="60" cy="60" r="2.6" class="sc"/></g>
+      <circle cx="60" cy="60" r="1.2" fill="#fff" opacity=".8"/>
     </svg>
-    <div class="w-clock-r"><div class="w-time"><b id="w-time"></b><span id="w-ampm"></span></div><p class="smallcaps" id="w-date"></p><p class="w-zone" id="w-zone"></p></div>
+    <div class="clock-txt"><div class="w-time"><b id="w-time">${t[0]}</b><span id="w-ampm">${(t[1] || '').toLowerCase()}</span></div><p class="w-date" id="w-date">${d.toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'short'})}</p><p class="w-zone" id="w-zone"></p></div></div>
   </section>`;
 };
 let lastBucket = bucket(new Date().getHours());
 function tick(){
-  const d = new Date(), h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
-  const hh = document.getElementById('w-hh');
-  if(hh){
-    hh.setAttribute('transform', `rotate(${(h % 12) * 30 + m * 0.5} 60 60)`);
-    document.getElementById('w-mh').setAttribute('transform', `rotate(${m * 6 + s * 0.1} 60 60)`);
-    document.getElementById('w-sh').setAttribute('transform', `rotate(${s * 6} 60 60)`);
+  const d = new Date(), h = d.getHours();
+  const tm = document.getElementById('w-time');
+  if(tm){
     const t = d.toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit', hour12:true}).split(' ');
-    document.getElementById('w-time').textContent = t[0]; document.getElementById('w-ampm').textContent = (t[1] || '').toLowerCase();
-    document.getElementById('w-date').textContent = d.toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'});
-    const z = document.getElementById('w-zone'); if(z && !z.textContent) z.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Calcutta' || Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Kolkata' ? 'India time' : Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
+    if(tm.textContent !== t[0]){ tm.innerHTML = `<span class="roll">${t[0]}</span>`; }
+    const ap = document.getElementById('w-ampm'); if(ap) ap.textContent = (t[1] || '').toLowerCase();
+    const z = document.getElementById('w-zone'); if(z && !z.textContent){ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; z.textContent = tz === 'Asia/Calcutta' || tz === 'Asia/Kolkata' ? 'India time' : tz.replace(/_/g, ' '); }
   }
   const b = bucket(h);
   if(b !== lastBucket){ lastBucket = b; if(!E.S.cur && !E.S.gate) E.render(); }
@@ -81,21 +82,21 @@ function describe(sym){
   if(b === 'clearsky' && isNight(sym)) t = 'Clear night';
   return t;
 }
-/* line-art weather marks in ink and foil */
+/* line-art weather marks in ink and foil; on the weather tile the sun turns, clouds drift and rain falls */
 function wx(sym, size = 48){
   const k = kind(sym), night = isNight(sym);
-  const sun = `<circle cx="24" cy="22" r="7.5" fill="url(#foil)"/>${[0,45,90,135,180,225,270,315].map(a => `<line x1="24" y1="9" x2="24" y2="5" transform="rotate(${a} 24 22)" stroke="url(#foil)" stroke-width="2" stroke-linecap="round"/>`).join('')}`;
-  const moon = `<path d="M28 9a12 12 0 1 0 9 19A10 10 0 0 1 28 9Z" fill="url(#foil)"/>`;
-  const cloud = (dx = 0, dy = 0, op = 1) => `<path transform="translate(${dx} ${dy})" d="M14 38h22a8 8 0 0 0 0-16 11 11 0 0 0-21-2 9 9 0 0 0-1 18Z" fill="var(--stock-top)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity="${op}"/>`;
+  const sun = `<g class="wx-sun"><circle cx="24" cy="22" r="7.5" fill="url(#foil)"/><g class="wx-rays">${[0,45,90,135,180,225,270,315].map(a => `<line x1="24" y1="9.5" x2="24" y2="5" transform="rotate(${a} 24 22)" stroke="#C9A45C" stroke-width="2" stroke-linecap="round"/>`).join('')}</g></g>`;
+  const moon = `<g class="wx-moon"><path d="M28 9a12 12 0 1 0 9 19A10 10 0 0 1 28 9Z" fill="url(#foil)"/><circle cx="40" cy="11" r="1" fill="#E2C27C" class="wx-st"/><circle cx="9" cy="16" r=".8" fill="#E2C27C" class="wx-st" style="animation-delay:1.2s"/></g>`;
+  const cloud = (dx = 0, dy = 0, op = 1, cls = 'wx-cloud') => `<path class="${cls}" transform="translate(${dx} ${dy})" d="M14 38h22a8 8 0 0 0 0-16 11 11 0 0 0-21-2 9 9 0 0 0-1 18Z" fill="var(--wx-cloud, var(--stock-top))" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity="${op}"/>`;
   let g = '';
   if(k === 'clear') g = night ? moon : sun;
   else if(k === 'part') g = `<g transform="translate(-6 -6) scale(.85)">${night ? moon : sun}</g>${cloud(2, 4)}`;
-  else if(k === 'cloud') g = `${cloud(-4, -4, .55)}${cloud(2, 3)}`;
-  else if(k === 'fog') g = `${cloud(0, -2)}<line x1="10" y1="42" x2="38" y2="42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="46" x2="34" y2="46" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6"/>`;
-  else if(k === 'rain') g = `${cloud(0, -4)}${[16, 24, 32].map((x, i) => `<line x1="${x}" y1="${38 + (i % 2) * 2}" x2="${x - 3}" y2="${45 + (i % 2) * 2}" stroke="url(#foil)" stroke-width="2.2" stroke-linecap="round"/>`).join('')}`;
-  else if(k === 'snow') g = `${cloud(0, -4)}${[16, 24, 32].map(x => `<circle cx="${x}" cy="42" r="1.8" fill="url(#foil)"/>`).join('')}`;
-  else g = `${cloud(0, -4)}<path d="M25 36l-5 7h5l-3 7 9-10h-5l3-4Z" fill="url(#foil)"/>`;
-  return `<svg class="wx" viewBox="0 0 48 52" width="${size}" height="${size * 52 / 48}" aria-hidden="true">${g}</svg>`;
+  else if(k === 'cloud') g = `${cloud(-4, -4, .55, 'wx-cloud b')}${cloud(2, 3)}`;
+  else if(k === 'fog') g = `${cloud(0, -2)}<line class="wx-fog" x1="10" y1="42" x2="38" y2="42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line class="wx-fog b" x1="14" y1="46" x2="34" y2="46" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6"/>`;
+  else if(k === 'rain') g = `${cloud(0, -4)}${[16, 24, 32].map((x, i) => `<line class="wx-drop" style="animation-delay:${i * 0.28}s" x1="${x}" y1="${38 + (i % 2) * 2}" x2="${x - 3}" y2="${45 + (i % 2) * 2}" stroke="#C9A45C" stroke-width="2.2" stroke-linecap="round"/>`).join('')}`;
+  else if(k === 'snow') g = `${cloud(0, -4)}${[16, 24, 32].map((x, i) => `<circle class="wx-drop" style="animation-delay:${i * 0.4}s" cx="${x}" cy="42" r="1.8" fill="url(#foil)"/>`).join('')}`;
+  else g = `${cloud(0, -4)}<path class="wx-bolt" d="M25 36l-5 7h5l-3 7 9-10h-5l3-4Z" fill="url(#foil)"/>`;
+  return `<svg class="wx wx-${k}" viewBox="0 0 48 52" width="${size}" height="${size * 52 / 48}" aria-hidden="true">${g}</svg>`;
 }
 const localDay = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 function current(){
@@ -105,16 +106,21 @@ function current(){
   const next = s.slice(i + 1).filter(x => x.span === 1).slice(0, 5);
   return {now:s[i], hi:todays.length ? Math.max(...todays) : null, lo:todays.length ? Math.min(...todays) : null, next};
 }
+/* the weather tile is a window: its sky follows the conditions and the hour */
+const skyOf = sym => { const k = kind(sym), h = new Date().getHours(); if(k === 'rain' || k === 'thunder') return 'rain'; if(k === 'snow' || k === 'fog') return 'fog'; if(isNight(sym) || h >= 20 || h < 5) return 'night'; if(h >= 17) return 'dusk'; if(k === 'cloud') return 'cloud'; return 'day'; };
 function weatherHtml(){
   if(!E.onNetlify()) return '';
   const c = current(), place = `<button class="w-place" data-act="weather-place" aria-label="Change weather location">${icon('location_on', false, 'xs')}${esc(W.loc.name)}</button>`;
-  if(!c) return `<section class="w-card w-weather stock" id="w-weather"><div class="w-head">${place}<span class="w-src">MET Norway</span></div>
-    ${W.err ? `<button class="w-retry" data-act="weather-retry">${icon('cloud_off')}<span>Weather is resting.<br><small>Tap to try again.</small></span></button>` : `<div class="w-now skel-line"></div><div class="w-hours skel-line"></div>`}</section>`;
+  if(!c) return `<section class="tile t-wx sky-day" id="w-weather" style="--i:2"><div class="w-head">${place}<span class="w-src">MET Norway</span></div>
+    ${W.err ? `<button class="w-retry" data-act="weather-retry">${icon('cloud_off')}<span>Weather is resting.<br><small>Tap to try again.</small></span></button>` : `<div class="w-now skel-line"></div>`}</section>`;
   const hr = t => new Date(t).toLocaleTimeString('en-IN', {hour:'numeric', hour12:true}).replace(' ', '').toLowerCase();
-  return `<section class="w-card w-weather stock" id="w-weather">
+  const sky = skyOf(c.now.sym);
+  return `<section class="tile t-wx sky-${sky} fx fx-edge" id="w-weather" style="--i:2">
+    ${sky === 'night' ? `<span class="w-stars" aria-hidden="true">${[[12, 18], [30, 10], [58, 22], [74, 9], [88, 30], [46, 36], [20, 44]].map(([x, y], i) => `<i style="left:${x}%;top:${y}%;animation-delay:${(i * 0.7).toFixed(1)}s"></i>`).join('')}</span>` : sky === 'rain' ? '<span class="w-rain" aria-hidden="true"></span>' : ''}
     <div class="w-head">${place}<span class="w-src">MET Norway</span></div>
-    <div class="w-now">${wx(c.now.sym, 54)}<b>${Math.round(c.now.temp)}°</b><div class="w-cond"><span>${describe(c.now.sym)}</span><small>${c.hi != null ? `High ${Math.round(c.hi)}° · Low ${Math.round(c.lo)}°` : ''}${c.now.hum != null ? `${c.hi != null ? ' · ' : ''}${Math.round(c.now.hum)}% humidity` : ''}</small></div></div>
-    ${c.next.length ? `<div class="w-hours">${c.next.map(x => `<div><small>${hr(x.t)}</small>${wx(x.sym, 30)}<b>${Math.round(x.temp)}°</b></div>`).join('')}</div>` : ''}
+    <div class="w-now">${wx(c.now.sym, 52)}<b><span data-count="${Math.round(c.now.temp)}">${Math.round(c.now.temp)}</span>°</b></div>
+    <p class="w-cond"><span>${describe(c.now.sym)}</span>${c.hi != null ? `<small>High ${Math.round(c.hi)}°, low ${Math.round(c.lo)}°</small>` : ''}</p>
+    ${c.next.length ? `<div class="w-hours">${c.next.slice(0, 4).map(x => `<div><small>${hr(x.t)}</small>${wx(x.sym, 24)}<b>${Math.round(x.temp)}°</b></div>`).join('')}</div>` : ''}
   </section>`;
 }
 /* the forecast for an event's evening, once it's within MET's ten-day range */
