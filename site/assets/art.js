@@ -49,7 +49,7 @@ function stars(R, n, w, h, avoid, cls = 'tw'){
   for(let i = 0; i < n; i++){
     const x = R() * w, y = R() * h * 0.62; if(avoid && avoid(x, y)) continue;
     const z = 1.4 + R() * 2.6, q = z * 0.28;
-    s += `<path class="${i % 3 === 0 ? cls : ''}" style="--d:${f(R() * 5)}s" d="M${f(x)} ${f(y - z)}L${f(x + q)} ${f(y - q)}L${f(x + z)} ${f(y)}L${f(x + q)} ${f(y + q)}L${f(x)} ${f(y + z)}L${f(x - q)} ${f(y + q)}L${f(x - z)} ${f(y)}L${f(x - q)} ${f(y - q)}Z" fill="#F7E3B0" opacity="${f(0.35 + R() * 0.5)}"/>`;
+    s += `<path class="${i % 5 === 0 ? cls : ''}" style="--d:${f(R() * 5)}s" d="M${f(x)} ${f(y - z)}L${f(x + q)} ${f(y - q)}L${f(x + z)} ${f(y)}L${f(x + q)} ${f(y + q)}L${f(x)} ${f(y + z)}L${f(x - q)} ${f(y + q)}L${f(x - z)} ${f(y)}L${f(x - q)} ${f(y - q)}Z" fill="#F7E3B0" opacity="${f(0.35 + R() * 0.5)}"/>`;
   }
   return s;
 }
@@ -62,9 +62,9 @@ function diwali(w, h, pal, R, id){
   const inArch = (x, y) => Math.abs(x - cx) < aw / 2 + 14 && y > h * 0.06;
   let g = '';
   // kandils hang outside the arch
-  const xs = narrow ? [w * 0.1, w * 0.9] : [w * 0.07, w * 0.16, w * 0.84, w * 0.93];
+  const compact = h < 380, xs = narrow || compact ? [w * 0.09, w * 0.91] : [w * 0.07, w * 0.16, w * 0.84, w * 0.93];
   xs.forEach((x, i) => {
-    const L = h * (0.2 + ((i * 7) % 5) * 0.06), s = narrow ? 15 : 19, c = [mari, rani, mari, peacock][i % 4];
+    const L = h * (compact ? 0.3 + i * 0.06 : 0.2 + ((i * 7) % 5) * 0.06), s = narrow ? 15 : 19, c = [mari, rani, mari, peacock][i % 4];
     g += `<g class="sway" style="transform-origin:${f(x)}px 0px;--d:${f(i * 0.7)}s"><line x1="${f(x)}" y1="0" x2="${f(x)}" y2="${f(L - s)}" stroke="#C9A45C" stroke-width="1"/>
       <path transform="translate(${f(x)} ${f(L)})" d="M${-s * 0.35} ${-s - 4}h${s * 0.7}l${s * 0.15} 5h${-s}Z" fill="url(#foil)"/>
       <g transform="translate(${f(x)} ${f(L + 3)})"><circle r="${f(s * 1.6)}" fill="url(#${id}g)" class="glo" style="--d:${f(i * 0.9)}s"/>
@@ -80,7 +80,7 @@ function diwali(w, h, pal, R, id){
   rang += `<circle r="${f(rr * 0.5)}" fill="${peacock}"/>`;
   for(let i = 0; i < 8; i++) rang += `<ellipse transform="rotate(${i * 45 + 22.5})" cy="${f(-rr * 0.3)}" rx="${f(rr * 0.09)}" ry="${f(rr * 0.17)}" fill="${mari}"/>`;
   rang += `<circle r="${f(rr * 0.13)}" fill="#F6E7C8"/><circle r="${f(rr * 0.06)}" fill="${rani}"/>`;
-  g += `<g transform="translate(${f(cx)} ${f(ry)})" opacity=".92">${rang}</g>`;
+  if(!compact) g += `<g transform="translate(${f(cx)} ${f(ry)})" opacity=".92">${rang}</g>`;
   // diyas along the bottom, outside the arch
   const per = narrow ? 2 : 4, dy = h - (narrow ? 16 : 20);
   for(let side = -1; side <= 1; side += 2) for(let i = 0; i < per; i++){
@@ -109,8 +109,8 @@ function wedding(w, h, pal, R, id, type){
   let man = ''; for(let r = 0.18; r <= 0.5; r += 0.08){ const n = Math.round(12 + r * 40); for(let i = 0; i < n; i++) man += `<ellipse transform="rotate(${f(i * 360 / n)}) translate(0 ${f(-h * r)})" rx="${f(h * 0.012)}" ry="${f(h * 0.03)}" fill="#F6E7C8"/>`; }
   g += `<g transform="translate(${f(cx)} ${f(h * 0.58)})" opacity=".07">${man}</g>`;
   // temple bells either side
-  const xs = narrow ? [w * 0.1, w * 0.9] : [w * 0.08, w * 0.17, w * 0.83, w * 0.92];
-  xs.forEach((x, i) => { const L = h * (0.22 + ((i * 3) % 4) * 0.07), s = narrow ? 11 : 14;
+  const xs = narrow || h < 380 ? [w * 0.09, w * 0.91] : [w * 0.08, w * 0.17, w * 0.83, w * 0.92];
+  xs.forEach((x, i) => { const L = h * (h < 380 ? 0.3 + i * 0.06 : 0.22 + ((i * 3) % 4) * 0.07), s = narrow ? 11 : 14;
     g += `<g class="sway" style="transform-origin:${f(x)}px 0px;--d:${f(i * 0.8)}s"><line x1="${f(x)}" y1="0" x2="${f(x)}" y2="${f(L - s)}" stroke="#C9A45C" stroke-width="1"/>
       ${[0.35, 0.6].map(t => `<circle cx="${f(x)}" cy="${f((L - s) * t)}" r="3.4" fill="${cols[i % cols.length]}"/>`).join('')}
       <path transform="translate(${f(x)} ${f(L)})" d="M0 ${-s}C${s * 0.6} ${-s} ${s * 0.7} ${-s * 0.2} ${s * 0.75} ${s * 0.5}L${s} ${s * 0.85}H${-s}L${-s * 0.75} ${s * 0.5}C${-s * 0.7} ${-s * 0.2} ${-s * 0.6} ${-s} 0 ${-s}Z" fill="url(#foil)"/>

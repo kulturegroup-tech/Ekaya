@@ -723,7 +723,7 @@ body.in-event .ambient i{animation:none}
 /* =====================================================================
    PAPER & FOIL — card stock, maroon ink, gold foil
    ===================================================================== */
-:root{--tex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .24  0 0 0 0 .14  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");--paper:#F4EDE0;--stock-top:#FCF8F0;--stock-bot:#F7F0E3;--stock-edge:rgba(120,80,40,.13);--foil:linear-gradient(105deg,#8C6A2F 0%,#D4AE63 18%,#F5E6B8 34%,#C89B4E 50%,#9C7637 66%,#E2C27C 84%,#A8823F 100%);--foil-ink:linear-gradient(100deg,#6E4E1C 0%,#A98238 22%,#D2B064 38%,#9C7637 55%,#7A5A25 75%,#B08A44 100%);--foil-line:rgba(176,132,58,.42);--stock-hi:rgba(255,255,255,.85);--stock-sh:rgba(70,35,15,.42);--bg:#F4EDE0;--ink:#2A1A14;--ink-2:#6E5A48;--ink-3:#A08C78}
+:root{--tex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .24  0 0 0 0 .14  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");--paper:#F4EDE0;--stock-top:#FCF8F0;--stock-bot:#F7F0E3;--stock-edge:rgba(120,80,40,.13);--foil:linear-gradient(105deg,#8C6A2F 0%,#D4AE63 18%,#F5E6B8 34%,#C89B4E 50%,#9C7637 66%,#E2C27C 84%,#A8823F 100%);--foil-ink:linear-gradient(100deg,#6E4E1C 0%,#A98238 22%,#D2B064 38%,#9C7637 55%,#7A5A25 75%,#B08A44 100%);--foil-line:rgba(176,132,58,.42);--stock-hi:rgba(255,255,255,.85);--stock-sh:rgba(70,35,15,.42);--bg:#F4EDE0;--ink:#2A1A14;--ink-2:#6E5A48;--ink-3:#806B58}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--tex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .9  0 0 0 0 .8  0 0 0 .045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");--paper:#150A0D;--bg:#150A0D;--stock-top:#24131A;--stock-bot:#1D0F14;--stock-edge:rgba(226,194,124,.13);--foil-ink:linear-gradient(105deg,#8C6A2F 0%,#D4AE63 18%,#F5E6B8 34%,#C89B4E 50%,#9C7637 66%,#E2C27C 84%,#A8823F 100%);--foil-line:rgba(226,194,124,.30);--stock-hi:rgba(255,230,210,.06);--stock-sh:rgba(0,0,0,.7);--ink:#F2E8D6;--ink-2:#CDBFAE;--ink-3:#9A8C80}}
 :root[data-theme="dark"]{--tex:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .9  0 0 0 0 .8  0 0 0 .045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");--paper:#150A0D;--bg:#150A0D;--stock-top:#24131A;--stock-bot:#1D0F14;--stock-edge:rgba(226,194,124,.13);--foil-ink:linear-gradient(105deg,#8C6A2F 0%,#D4AE63 18%,#F5E6B8 34%,#C89B4E 50%,#9C7637 66%,#E2C27C 84%,#A8823F 100%);--foil-line:rgba(226,194,124,.30);--stock-hi:rgba(255,230,210,.06);--stock-sh:rgba(0,0,0,.7);--ink:#F2E8D6;--ink-2:#CDBFAE;--ink-3:#9A8C80}
 
@@ -1555,3 +1555,166 @@ html.vt .wrap.enter .art *{animation-name:revert!important}
 @container (max-width:230px){.t-money .tile-act,.t-guests .tile-act{position:relative;right:auto;top:auto;align-self:flex-start;margin-top:2px}.t-money .t-label,.t-guests .t-label{padding-right:0}}
 
 .t-clock{justify-content:center}
+
+/* =====================================================================
+   Layout B (after the design review): invitation + calendar + money up top,
+   working tiles next, clock and weather as utilities. One finish everywhere:
+   20/24px padding, 12/16px gaps, 22/24px radii.
+   ===================================================================== */
+.home{gap:32px}
+@media (min-width:700px){.home{gap:40px}}
+.bento{gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hello hello" "hero hero" "cal money" "guests tasks" "week week" "clock wx"}
+.bento.no-next{grid-template-areas:"hello hello" "empty empty" "week week" "clock wx"}
+.bento:not(:has(.t-wx)){grid-template-areas:"hello hello" "hero hero" "cal money" "guests tasks" "week week" "clock clock"}
+.bento.no-next:not(:has(.t-wx)){grid-template-areas:"hello hello" "empty empty" "week week" "clock clock"}
+@media (min-width:700px){
+  .bento{gap:16px;grid-template-columns:repeat(6,minmax(0,1fr));grid-template-areas:"hello hello hello hello hello hello" "hero hero hero hero cal cal" "money money money guests guests guests" "tasks tasks tasks week week week" "clock clock clock wx wx wx"}
+  .bento.no-next{grid-template-areas:"hello hello hello hello hello hello" "empty empty empty empty empty empty" "week week week week week week" "clock clock clock wx wx wx"}
+  .bento:not(:has(.t-wx)){grid-template-areas:"hello hello hello hello hello hello" "hero hero hero hero cal cal" "money money money guests guests guests" "tasks tasks tasks week week week" "clock clock clock clock clock clock"}
+  .bento.no-next:not(:has(.t-wx)){grid-template-areas:"hello hello hello hello hello hello" "empty empty empty empty empty empty" "week week week week week week" "clock clock clock clock clock clock"}
+}
+@media (min-width:1100px){
+  .bento{grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"hello hello hello hello hello hello clock clock clock wx wx wx" "hero hero hero hero hero hero cal cal money money money money" "guests guests guests guests tasks tasks tasks tasks week week week week"}
+  .bento.no-next{grid-template-areas:"hello hello hello hello hello hello clock clock clock wx wx wx" "empty empty empty empty empty empty empty empty empty empty empty empty" "week week week week week week week week week week week week"}
+  .bento:not(:has(.t-wx)){grid-template-areas:"hello hello hello hello hello hello hello hello clock clock clock clock" "hero hero hero hero hero hero cal cal money money money money" "guests guests guests guests tasks tasks tasks tasks week week week week"}
+  .bento.no-next:not(:has(.t-wx)){grid-template-areas:"hello hello hello hello hello hello hello hello clock clock clock clock" "empty empty empty empty empty empty empty empty empty empty empty empty" "week week week week week week week week week week week week"}
+}
+.tile{padding:20px;border-radius:22px;gap:12px}
+@media (min-width:700px){.tile{padding:24px;border-radius:24px}}
+
+/* greeting: introduces the work, says what needs doing */
+.b-hello{padding:4px 2px 0;align-self:start}
+@media (min-width:1100px){.b-hello{padding:24px 8px 0 2px}}
+.b-date{margin:0 0 8px;font:italic 500 16px/1.2 var(--f-display);font-size-adjust:ex-height .43}
+.b-hello .display{font-size:clamp(32px,4.2vw,52px);line-height:1.02}
+.b-hello .sub{margin-top:10px;font-size:15px;line-height:22px;color:var(--ink-2)}
+
+/* tile headers: a real row, label and scope on the left, the action on the right */
+.t-head{position:relative;z-index:3;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;pointer-events:none}
+.t-head .tile-act{pointer-events:auto}
+.tile .t-label{display:flex;flex-direction:column;gap:1px;min-width:0;margin:0;padding:0;font:600 13px/18px var(--f-ui);color:var(--ink)}
+.tile .t-label b{font-weight:600}
+.tile .t-label span{font:500 12px/16px var(--f-ui);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile-act{position:relative;right:auto;top:auto;flex:none;height:36px;padding:0 13px 0 10px;font-size:13px}
+.tile-act::after{content:"";position:absolute;inset:-4px -2px}
+.t-sub{font-size:14px;line-height:20px;-webkit-line-clamp:3}
+.t-sub .late{color:var(--bad);font-weight:650}
+
+/* one figure scale: date 64/80, counts 32/40, money 28/36 in sans, temperature 28/32, time 22/24 */
+.t-fig{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.t-fig b{font:400 32px/1.1 var(--f-display);font-variant-numeric:lining-nums tabular-nums;font-feature-settings:"lnum" 1;letter-spacing:-.01em;font-size-adjust:ex-height .43}
+.t-fig span{font-size:14px;line-height:20px;color:var(--ink-2)}
+@media (min-width:700px){.t-fig b{font-size:40px}}
+.money-row{display:flex;align-items:center;gap:14px}
+.money-row .ring{width:72px;height:72px;flex:none}
+.money-fig{display:flex;flex-direction:column;gap:4px;min-width:0}
+.money-fig b{font:650 28px/1.1 var(--f-ui);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.money-fig small{font-size:12px;line-height:16px;color:var(--ink-2)}
+@media (min-width:700px){.money-fig b{font-size:36px}}
+@container (max-width:260px){.money-row{flex-direction:column;align-items:flex-start;gap:10px}.money-row .ring{width:56px;height:56px}.money-fig b{font-size:clamp(20px,19cqi,28px)}}
+.cal-day b{font-size:64px;line-height:1}
+@media (min-width:700px){.cal-day b{font-size:80px}}
+.cal-foot{font-size:13px}
+.cal-foot b{font:400 24px/1.05 var(--f-display);font-size-adjust:ex-height .43;font-variant-numeric:lining-nums;background:none!important;color:var(--accent-text)!important;-webkit-background-clip:border-box;background-clip:border-box;padding:0}
+.t-cal{padding:0}
+
+/* guests: headcount with plus-ones, invitations by response */
+.rsvp-bar .x{background:var(--bad);opacity:.55}
+.avs{padding-left:4px}
+.avs .av{width:34px;height:34px;margin-left:-4px;font:650 11.5px/1 var(--f-ui)!important;letter-spacing:.02em;font-style:normal!important}
+.t-guests .avs{margin-top:auto}
+
+/* checklist: a calm bar instead of a row of empty boxes */
+.t-bar{height:6px;border-radius:6px;background:var(--line-2);overflow:hidden}
+.t-bar i{display:block;height:100%;width:var(--w);border-radius:6px;background:var(--foil)}
+.fresh .t-bar i{animation:barin .6s cubic-bezier(.2,.8,.2,1) both .1s}
+
+/* this week */
+.t-week .wk-row b{font:600 14px/20px var(--f-ui)}
+.t-week .wk-row small{font-size:12px;line-height:16px;color:var(--ink-2)}
+.wk-date{font:650 11px/1.2 var(--f-ui);letter-spacing:.06em}
+.wk-date.now{color:var(--accent-text)}
+.wk-empty{margin:0;font-size:14px;line-height:20px;text-align:left}
+.t-week .t-head{margin-bottom:2px}
+
+/* invitation: shorter, the date lives on the calendar page */
+.t-hero{min-height:300px}
+@media (min-width:700px){.t-hero{min-height:320px}}
+.hero-txt{padding:60px 24px 84px;gap:6px}
+.hero-k{font-size:16px}
+.hero-name{font-size:clamp(34px,6.4vw,54px);line-height:1;max-width:14ch}
+.hero-where{margin:4px 0 0;font:600 14px/20px var(--f-ui);opacity:.88;max-width:34ch}
+.hero-act{bottom:20px}
+.hero-act .btn{height:44px}
+/* buttons on artwork are opaque card stock, not glass */
+.btn.veil{background:#3A1A2A;color:#F6EAD2;border:1px solid rgba(235,207,152,.45);-webkit-backdrop-filter:none;backdrop-filter:none}
+.btn.veil:hover{background:#4A2236}
+.tone-light .btn.veil,.t-hero:has(.stock-ivory) .btn.veil,.ov-art:has(.stock-ivory) .btn.veil{background:var(--stock-top);color:#2A1A14;border-color:var(--foil-line)}
+.ev-kind{background:#FBF5EA;color:#2A1A14;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 2px 6px -2px rgba(0,0,0,.3)}
+.ev-face.tone-light .ev-kind{background:#FFFFFF}
+
+/* clock and weather: compact utilities */
+.t-clock{justify-content:center}
+.clock-in{flex-direction:row;align-items:center;gap:12px}
+.t-clock .dial{width:48px;height:48px;filter:drop-shadow(0 3px 6px rgba(70,35,15,.18))}
+@container (min-width:250px){.clock-in{gap:16px}.t-clock .dial{width:64px;height:64px}}
+.t-clock .w-time b{font-size:22px;line-height:1.1}
+.t-clock .w-time>span{font-size:14px}
+@media (min-width:700px){.t-clock .w-time b{font-size:24px}}
+.t-wx{gap:8px}
+.t-wx .w-now{gap:8px}
+.t-wx .w-now .wx{width:36px;height:39px}
+.t-wx .w-now b{font-size:28px;line-height:1.1}
+@media (min-width:700px){.t-wx .w-now b{font-size:32px}}
+.t-wx .w-cond span{font-size:14px;line-height:20px}
+.t-wx .w-cond small{font-size:12px;line-height:16px;opacity:.8}
+.t-wx .w-src{font-size:11px;opacity:.75}
+.t-wx .w-hours{grid-template-columns:repeat(3,1fr)}
+.t-wx .w-hours small{font-size:12px;opacity:.8}
+.t-wx .w-place{height:30px;font-size:12px;position:relative}
+.t-wx .w-place::after{content:"";position:absolute;inset:-7px -4px}
+.w-zone{font-size:12px;color:var(--ink-2)}
+
+/* other celebrations: the new-event button sits with the heading */
+.b-more-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.b-more-h .btn{height:40px}
+
+/* motion, refined: quick arrival, softer light, one gentle tilt */
+.wrap.enter .bento>*,.wrap.enter .b-more{animation-duration:.3s;animation-delay:calc(min(var(--i,0),8) * 30ms - var(--t,0ms))}
+.wrap.enter .ev-grid>*{animation-duration:.3s;animation-delay:calc(240ms + min(var(--n,0),4) * 30ms - var(--t,0ms))}
+@keyframes tilein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes tilein-fx{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+.wrap.enter .hero-txt>*{animation:none}
+.fx::after{background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(255,240,205,.12),transparent 45%)}
+.tone-light.fx::after,.ev-card.fx::after,.tile.fx:not(.t-hero)::after{background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(255,250,235,.38),transparent 45%)}
+.art .sway{animation-duration:8s}
+@keyframes sway{from{transform:rotate(-1.2deg)}to{transform:rotate(1.2deg)}}
+.art .glo{animation-duration:5s}
+@media (prefers-reduced-motion:reduce){.dial .hand{animation:none!important;transform:rotate(var(--a,0deg))}}
+/* second pass: narrow tiles keep their labels, the money tile reads like a ledger */
+.tile-act .ms{width:18px;height:18px}
+.t-money,.t-guests,.t-tasks,.t-cal{container-type:inline-size}
+@container (max-width:230px){.tile-act{width:36px;padding:0;justify-content:center;border-radius:50%}.tile-act span{display:none}.sub-more{display:none}}
+.t-tasks .t-sub,.t-guests .t-sub{margin-top:0}
+.ledger{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.lg-row{display:flex;align-items:baseline;gap:8px;margin:0;font-size:14px;line-height:20px;color:var(--ink-2)}
+.lg-row i{flex:1;min-width:12px;border-bottom:1.5px dotted var(--foil-line);transform:translateY(-4px)}
+.lg-row b{font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-row b small{font-weight:500;color:var(--ink-2);font-size:12px;margin-left:6px}
+.lg-row b.bad{color:var(--bad)}.lg-row b.good{color:var(--good)}
+@container (max-width:260px){.lg-row.more{display:none}.lg-row{flex-wrap:wrap}.lg-row i{display:none}.lg-row b{width:100%}}
+/* weather in three lines: place, now, the evening */
+.t-wx .w-now{flex-wrap:wrap;row-gap:2px}
+.t-wx .w-now .w-cond{margin-left:6px}
+.t-wx .w-eve{display:none;align-items:center;gap:12px;margin-top:auto;padding-top:10px;border-top:1px solid rgba(120,90,60,.15);font-size:12px}
+.t-wx .w-eve small{font:600 12px/1 var(--f-ui);opacity:.8;margin-right:auto}
+.t-wx .w-eve span{display:inline-flex;align-items:center;gap:4px;opacity:.85}
+.t-wx .w-eve b{font-weight:650;opacity:1}
+.t-wx .w-eve .wx{width:16px;height:17px}
+@container (min-width:250px){.t-wx .w-eve{display:flex}}
+.t-wx.sky-night .w-eve{border-top-color:rgba(255,255,255,.12)}
+:root[data-theme="dark"] .t-wx .w-eve{border-top-color:rgba(255,255,255,.12)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .t-wx .w-eve{border-top-color:rgba(255,255,255,.12)}}
+@container (max-width:200px){.t-wx .w-now .w-cond{margin-left:0;width:100%}}
+.t-wx .w-eve{justify-content:space-between;gap:8px}
+.t-wx .w-eve span{gap:5px}

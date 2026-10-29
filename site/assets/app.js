@@ -50,6 +50,7 @@ function afterRender(ev){
   if(host && ev) E.venue.attach(host, ev.id, S.venue.find(v => v.id === 'main'));
   if(S.cur && S.tab === 'photos' && ev) E.photos.after(ev);
   if(!S.cur && !S.gate){ ensureHomeData(); E.widgets.after(); }
+  if(!S.gate) fitArt();
 }
 /* sync status: a chip on home and in the sidebar, an icon in the event top bar only when something needs attention */
 function chipInner(){
@@ -113,126 +114,155 @@ function homeView(){
   const dateLine = new Date().toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'});
   const hello = sub => `<section class="b-hello" style="--i:0"><p class="b-date">${dateLine}</p><h1 class="display">${E.widgets.phrase('Ekta', S.events)}</h1><p class="sub">${sub}</p></section>`;
   const widgets = E.widgets.clockHtml() + E.widgets.weatherHtml();
-  if(Store.mode === 'loading' || !S.evLoaded) return `<div class="home"><div class="bento">${hello('Opening your events…')}${widgets}<div class="tile t-hero skel"></div></div></div>`;
+  if(Store.mode === 'loading' || !S.evLoaded) return `<div class="home"><div class="bento">${hello('Opening your events…')}<div class="tile t-hero skel"></div>${widgets}</div></div>`;
   const evs = [...S.events].sort(byDate);
   const up = evs.filter(e => !e.date || E.daysUntil(e.date) >= 0), past = evs.filter(e => e.date && E.daysUntil(e.date) < 0).reverse();
   const next = up.find(e => e.date) || up[0];
-  const sub = up.length ? `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works${next && next.date ? `. ${esc(next.name)} ${(n => n === 0 ? 'is today' : n === 1 ? 'is tomorrow' : `is in ${n} days`)(E.daysUntil(next.date))}` : ''}.` : 'Nothing on the calendar yet.';
   const rest = up.filter(e => e !== next);
   return `<div class="home">${localOfferCard()}
     <div class="bento${next ? '' : ' no-next'}">
-      ${hello(sub)}${widgets}
-      ${next ? heroTile(next) + calTile(next) + moneyTile(next) + guestsTile(next) + tasksTile(next) : `<div class="b-empty" style="--i:3">${homeEmpty()}</div>`}
+      ${hello(helloLine(up, next))}
+      ${next ? heroTile(next) + calTile(next) + moneyTile(next) + guestsTile(next) + tasksTile(next) : `<div class="b-empty" style="--i:1">${homeEmpty()}</div>`}
       ${up.length ? weekTile(up) : ''}
+      ${widgets}
     </div>
-    ${rest.length || (next && S.canWrite) ? `<section class="b-more"><h2 class="b-h">Also coming up</h2><div class="ev-grid">${rest.map(evCard).join('')}${S.canWrite ? newCard() : ''}</div></section>` : ''}
-    ${past.length ? `<section class="b-more"><h2 class="b-h">Past celebrations</h2><div class="ev-grid">${past.map(evCard).join('')}</div></section>` : ''}
+    ${next || rest.length ? `<section class="b-more"><div class="b-more-h"><h2 class="b-h">${rest.length ? 'Also coming up' : 'Nothing else planned yet'}</h2>${S.canWrite ? `<button class="btn ghost sm" data-act="new-event">${icon('add')}New event</button>` : ''}</div>${rest.length ? `<div class="ev-grid">${rest.map(evCard).join('')}</div>` : ''}</section>` : ''}
+    ${past.length ? `<section class="b-more"><div class="b-more-h"><h2 class="b-h">Past celebrations</h2></div><div class="ev-grid">${past.map(evCard).join('')}</div></section>` : ''}
   </div>`;
 }
-const homeData = e => { const d = S.home[e.id] || {}, loaded = d.people && d.expenses && d.tasks; return {d, loaded, st:loaded ? E.stats(e, d.people, d.expenses, d.payments || [], d.income || []) : null}; };
-const artSize = () => innerWidth < 700 ? [400, 470] : innerWidth < 1100 ? [640, 470] : [820, 460];
-/* a card's face: the event's photo, a plain stock it was given, or its festive artwork */
-function cardFace(e, size){
-  if(E.hasPhoto(e)) return {html:E.coverHtml(e, 'face-photo'), tone:'dark'};
-  const stock = e.cover && e.cover.stock;
-  if(stock === 'ivory' || stock === 'maroon') return {html:`<span class="face-stock stock-${stock}">${stock === 'maroon' ? E.toran() : ''}</span>`, tone:stock === 'maroon' ? 'dark' : 'light'};
-  const a = E.art(e, size); return {html:a.svg, tone:a.tone};
+/* the greeting's second line says what needs doing, not the countdown (the calendar tile carries that) */
+const dueThisWeek = up => { const lim = addDays(E.today(), 7); let n = 0; up.forEach(e => (S.home[e.id]?.tasks || []).forEach(t => { if(!t.done && t.due && t.due <= lim) n++; })); return n; };
+function helloLine(up, next){
+  if(!up.length) return 'Nothing on the calendar yet.';
+  const {st} = homeData(next), due = dueThisWeek(up), parts = [];
+  if(st && st.contri && st.pendingCount) parts.push(`${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} still to pay for ${esc(next.name)}`);
+  if(due) parts.push(`${due} ${due === 1 ? 'task' : 'tasks'} due this week`);
+  if(parts.length) return parts.join(', and ') + '.';
+  return st ? `Everything is on track for ${esc(next.name)}.` : `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works.`;
 }
-/* the next celebration: a printed invitation with the event's artwork */
+const homeData = e => { const d = S.home[e.id] || {}, loaded = d.people && d.expenses && d.tasks; return {d, loaded, st:loaded ? E.stats(e, d.people, d.expenses, d.payments || [], d.income || []) : null}; };
+/* artwork is drawn for the size its card really is (measured after each render, see fitArt) */
+const ART_AT = {hero:null, ev:null, ov:null};
+const artGuess = slot => ART_AT[slot] || (slot === 'ev' ? [Math.min(420, innerWidth - 32), 150] : slot === 'ov' ? [Math.min(1120, innerWidth - (innerWidth >= 1000 ? 320 : 32)), innerWidth < 700 ? 420 : 400] : innerWidth < 700 ? [innerWidth - 32, 300] : innerWidth < 1100 ? [Math.round((innerWidth - 32) * 0.66), 300] : [620, 320]);
+const isStock = e => !!(e.cover && (e.cover.stock === 'ivory' || e.cover.stock === 'maroon'));
+function cardFace(e, slot){
+  if(E.hasPhoto(e)) return {html:E.coverHtml(e, 'face-photo'), tone:'dark'};
+  if(isStock(e)) return {html:`<span class="face-stock stock-${e.cover.stock}">${e.cover.stock === 'maroon' ? E.toran() : ''}</span>`, tone:e.cover.stock === 'maroon' ? 'dark' : 'light'};
+  const a = E.art(e, artGuess(slot)); return {html:a.svg, tone:a.tone};
+}
+function fitArt(){
+  $$('[data-art]').forEach(face => {
+    const slot = face.dataset.art, r = face.getBoundingClientRect(); if(r.width < 40 || r.height < 40) return;
+    const want = [Math.round(r.width), Math.round(r.height)], svg = face.querySelector(':scope > svg.art');
+    const vb = svg && svg.viewBox.baseVal; if(!vb) { ART_AT[slot] = want; return; }
+    if(Math.abs(vb.width - want[0]) < 24 && Math.abs(vb.height - want[1]) < 24) return;
+    ART_AT[slot] = want;
+    const ev = S.events.find(x => x.id === face.dataset.eid); if(ev) svg.outerHTML = E.art(ev, want).svg;
+  });
+}
+addEventListener('resize', (() => { let t = 0; return () => { clearTimeout(t); t = setTimeout(() => { if(!S.gate) fitArt(); }, 200); }; })());
+const ledger = (k, v, tone = '', cls = '') => `<p class="lg-row ${cls}"><span>${k}</span><i aria-hidden="true"></i><b class="${tone}">${v}</b></p>`;
+const head = (label, scope, act = '') => `<div class="t-head"><p class="t-label"><b>${label}</b>${scope ? `<span>${esc(scope)}</span>` : ''}</p>${act}</div>`;
+/* the next celebration: a printed invitation; the calendar beside it carries the date */
 function heroTile(e){
-  const t = E.TYPES[e.type] || E.TYPES.party, face = cardFace(e, artSize()), fc = E.widgets.eventForecast(e);
-  const when = e.date ? new Date(e.date + 'T00:00').toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long'}) : 'Date to be set';
-  return `<article class="tile t-hero tone-${face.tone} fx fx-tilt" style="--i:3">
-    <div class="hero-face">${face.html}</div>
+  const face = cardFace(e, 'hero'), fc = E.widgets.eventForecast(e);
+  const line = [e.time ? E.fmtTime(e.time) : '', e.venue || ''].filter(Boolean).map(esc).join(' at ');
+  return `<article class="tile t-hero tone-${face.tone} fx fx-tilt" style="--i:1">
+    <div class="hero-face" data-art="hero" data-eid="${esc(e.id)}">${face.html}</div>
     <button class="tile-link" data-act="open-event" data-id="${esc(e.id)}" aria-label="Open ${esc(e.name)}"></button>
     <div class="hero-txt">
       <p class="hero-k">Up next</p>
       <h2 class="hero-name">${esc(e.name)}</h2>
-      ${E.divider(150)}
-      <p class="hero-when">${esc(when)}${e.time ? `, ${esc(E.fmtTime(e.time))}` : ''}</p>
-      <p class="hero-where">${e.venue ? esc(e.venue) : 'Venue to be added'}</p>
-      ${fc ? `<p class="hero-wx">${E.widgets.wx(fc.sym, 20)}<span>${fc.temp}° and ${esc(fc.text)} that evening${fc.rain > 0.2 ? '. Keep a rain plan' : ''}</span></p>` : ''}
+      <p class="hero-where">${line || (S.canWrite ? 'Add the time and venue' : '')}</p>
+      ${fc ? `<p class="hero-wx">${E.widgets.wx(fc.sym, 20)}<span>${fc.temp}°, ${esc(fc.text)} that evening${fc.rain > 0.2 ? '. Plan for rain' : ''}</span></p>` : ''}
     </div>
     ${S.canWrite ? `<div class="hero-act">${E.contriOn(e) ? `<button class="btn gold" data-act="quick-collect" data-id="${esc(e.id)}">${icon('currency_rupee')}Record a payment</button>` : ''}<button class="btn veil" data-act="quick-guests" data-id="${esc(e.id)}">${icon('person_add')}Add guests</button></div>` : ''}
   </article>`;
 }
-/* a tear-off calendar page for the date itself */
+/* a tear-off calendar page for the date itself, and the only countdown on the screen */
 function calTile(e){
-  const n = E.daysUntil(e.date);
-  if(!e.date) return `<article class="tile t-cal fx fx-edge" style="--i:4"><button class="tile-link" data-act="open-event" data-id="${esc(e.id)}" aria-label="Open ${esc(e.name)}"></button><div class="cal-top"><i></i><i></i><span>Date</span></div><div class="cal-day"><b class="cal-q">?</b><span>Not set yet</span></div><p class="cal-foot">Pick a date to start the countdown</p></article>`;
-  const d = new Date(e.date + 'T00:00'), month = d.toLocaleDateString('en-IN', {month:'long'}), wd = d.toLocaleDateString('en-IN', {weekday:'long'});
-  return `<article class="tile t-cal fx fx-edge" style="--i:4"><button class="tile-link" data-act="open-event" data-id="${esc(e.id)}" aria-label="Open ${esc(e.name)}"></button>
-    <div class="cal-top"><i></i><i></i><span>${esc(month)}</span></div>
-    <div class="cal-day"><b>${d.getDate()}</b><span>${esc(wd)}</span></div>
-    <p class="cal-foot">${n === 0 ? '<b class="foil-num word">Today</b>' : `<b class="foil-num" data-count="${n}">${n}</b><span>${n === 1 ? 'day to go' : 'days to go'}</span>`}</p>
+  const n = E.daysUntil(e.date), link = `<button class="tile-link" data-act="open-event" data-id="${esc(e.id)}" aria-label="Open ${esc(e.name)}"></button>`;
+  if(!e.date) return `<article class="tile t-cal fx fx-edge" style="--i:2">${link}<div class="cal-top"><i></i><i></i><span>Date</span></div><div class="cal-day"><b class="cal-q">?</b><span>Not set yet</span></div><p class="cal-foot">Pick a date to start the countdown</p></article>`;
+  const d = new Date(e.date + 'T00:00');
+  return `<article class="tile t-cal fx fx-edge" style="--i:2">${link}
+    <div class="cal-top"><i></i><i></i><span>${esc(d.toLocaleDateString('en-IN', {month:'long'}))}</span></div>
+    <div class="cal-day"><b>${d.getDate()}</b><span>${esc(d.toLocaleDateString('en-IN', {weekday:'long'}))}</span></div>
+    <p class="cal-foot">${n === 0 ? '<b class="word">Today</b>' : `<b data-count="${n}">${n}</b><span>${n === 1 ? 'day to go' : 'days to go'}</span>`}</p>
   </article>`;
 }
 const ring = (p, size = 112) => { const r = 46, C = 2 * Math.PI * r, v = Math.max(0, Math.min(1, p || 0)); return `<svg class="ring" viewBox="0 0 112 112" width="${size}" height="${size}" aria-hidden="true"><circle cx="56" cy="56" r="${r}" class="ring-bg"/><circle cx="56" cy="56" r="${r}" class="ring-fg" stroke-dasharray="${C.toFixed(1)}" style="--off:${(C * (1 - v)).toFixed(1)};--c:${C.toFixed(1)}" transform="rotate(-90 56 56)"/></svg>`; };
 function moneyTile(e){
-  const {st} = homeData(e), c = E.contriOn(e);
-  const go = `<button class="tile-link" data-act="quick-money" data-id="${esc(e.id)}" aria-label="Open money for ${esc(e.name)}"></button>`;
-  if(!st) return `<article class="tile t-money" style="--i:5">${go}<p class="t-label">${c ? 'Contri collected' : 'Spent so far'}</p><div class="skel-line" style="height:90px"></div></article>`;
-  const goal = c ? st.planTotal : st.budget, have = c ? st.collectedAll : st.spent;
-  return `<article class="tile t-money fx fx-edge" style="--i:5">${go}
-    <p class="t-label">${c ? 'Collected' : 'Spent so far'}</p>
-    <div class="ring-row">${ring(goal ? have / goal : 0, 96)}<div class="ring-txt"><b data-count="${Math.round(have)}" data-fmt="inr">${inr(have)}</b><small>${goal ? `of ${inr(goal)}` : c ? 'set the plan in Money' : 'no budget yet'}</small></div></div>
-    <p class="t-sub">${c ? (st.pendingCount ? `${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} still to pay ${inr(st.pending)}` : st.toJoin ? `${st.toJoin} more people expected` : 'Everyone on the list has paid') : `${S.home[e.id]?.expenses?.length || 0} expenses logged`}</p>
-    ${S.canWrite && c ? `<button class="tile-act" data-act="quick-collect" data-id="${esc(e.id)}" aria-label="Record a payment">${icon('add')}Record</button>` : ''}
+  const {st} = homeData(e), c = E.contriOn(e), go = `<button class="tile-link" data-act="quick-money" data-id="${esc(e.id)}" aria-label="Open money for ${esc(e.name)}"></button>`;
+  const act = S.canWrite && c ? `<button class="tile-act" data-act="quick-collect" data-id="${esc(e.id)}" aria-label="Record a payment">${icon('add')}<span>Record</span></button>` : '';
+  if(!st) return `<article class="tile t-money" style="--i:3">${go}${head(c ? 'Collected' : 'Spent', e.name, act)}<div class="skel-line" style="height:76px"></div></article>`;
+  const goal = c ? st.planTotal : st.budget, have = c ? st.collectedAll : st.spent, p = goal ? have / goal : 0;
+  return `<article class="tile t-money fx fx-edge" style="--i:3">${go}${head(c ? 'Collected' : 'Spent', e.name, act)}
+    <div class="money-row">${ring(p, 72)}<div class="money-fig"><b data-count="${Math.round(have)}" data-fmt="inr">${inr(have)}</b><small>${goal ? `of ${inr(goal)} · ${Math.round(p * 100)}%` : c ? 'Set the plan in Money' : 'No budget set yet'}</small></div></div>
+    <div class="ledger">${c ? [
+        ledger('Still due', st.pending ? `${inr(st.pending)}<small>${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'}</small>` : 'Nothing', st.pending ? 'bad' : 'good'),
+        ledger('Paid in full', st.planPeople ? `${st.paidPeople} of ${st.planPeople}` : `${st.paidCount} of ${st.sharers.length}`, '', 'more'),
+        ledger('Spent', inr(st.spent), '', 'more')].join('') : [ledger('Budget', st.budget ? inr(st.budget) : 'Not set'), ledger('Expenses', String(S.home[e.id]?.expenses?.length || 0), '', 'more')].join('')}</div>
   </article>`;
 }
 function guestsTile(e){
-  const {d, st} = homeData(e);
-  const go = `<button class="tile-link" data-act="open-tab" data-tab="guests" data-id="${esc(e.id)}" aria-label="Open guests for ${esc(e.name)}"></button>`;
-  if(!st) return `<article class="tile t-guests" style="--i:6">${go}<p class="t-label">Guests</p><div class="skel-line" style="height:70px"></div></article>`;
-  const r = st.rsvp, total = r.going + r.maybe + r.no + r.invited || 1, coming = (d.people || []).filter(p => p.rsvp === 'going');
-  const avs = coming.slice(0, 5).map((p, i) => `<span class="av av${i % 5}">${esc(E.initials(p.name))}</span>`).join('') + (coming.length > 5 ? `<span class="av more">+${coming.length - 5}</span>` : '');
-  return `<article class="tile t-guests fx fx-edge" style="--i:6">${go}
-    <p class="t-label">Guests</p>
-    <div class="t-big"><b data-count="${st.headcount}">${st.headcount}</b><span>${st.headcount === 1 ? 'person coming' : 'people coming'}</span></div>
-    ${avs ? `<div class="avs">${avs}</div>` : ''}
-    <div class="rsvp-bar" aria-hidden="true"><i class="g" style="--w:${r.going / total * 100}%"></i><i class="m" style="--w:${r.maybe / total * 100}%"></i><i class="n" style="--w:${r.invited / total * 100}%"></i></div>
-    <p class="t-sub">${[r.going ? `${r.going} going` : '', r.maybe ? `${r.maybe} maybe` : '', r.invited ? `${r.invited} not replied` : ''].filter(Boolean).join(', ') || 'No one on the list yet'}</p>
-    ${S.canWrite ? `<button class="tile-act" data-act="quick-guests" data-id="${esc(e.id)}" aria-label="Add guests">${icon('add')}Add</button>` : ''}
+  const {d, st} = homeData(e), go = `<button class="tile-link" data-act="open-tab" data-tab="guests" data-id="${esc(e.id)}" aria-label="Open guests for ${esc(e.name)}"></button>`;
+  const act = S.canWrite ? `<button class="tile-act" data-act="quick-guests" data-id="${esc(e.id)}" aria-label="Add guests">${icon('add')}<span>Add</span></button>` : '';
+  if(!st) return `<article class="tile t-guests" style="--i:4">${go}${head('Guests', e.name, act)}<div class="skel-line" style="height:76px"></div></article>`;
+  const r = st.rsvp, invites = r.going + r.maybe + r.no + r.invited, coming = (d.people || []).filter(p => p.rsvp === 'going');
+  const avs = coming.slice(0, 4).map((p, i) => `<span class="av av${i % 5}">${esc(E.initials(p.name))}</span>`).join('') + (coming.length > 4 ? `<span class="av more">+${coming.length - 4}</span>` : '');
+  const seg = (k, n) => n ? `<i class="${k}" style="--w:${(n / invites * 100).toFixed(1)}%"></i>` : '';
+  return `<article class="tile t-guests fx fx-edge" style="--i:4">${go}${head('Guests', e.name, act)}
+    <div class="t-fig"><b data-count="${st.headcount}">${st.headcount}</b><span>${st.headcount === 1 ? 'person coming' : 'people coming'}${st.headcount > r.going ? ', with plus-ones' : ''}</span></div>
+    ${invites ? `<div class="rsvp-bar" role="img" aria-label="${r.going} coming, ${r.maybe} maybe, ${r.invited} not replied, ${r.no} not coming">${seg('g', r.going)}${seg('m', r.maybe)}${seg('n', r.invited)}${seg('x', r.no)}</div>
+    <p class="t-sub">${[`${r.going} coming`, r.maybe ? `${r.maybe} maybe` : '', r.invited ? `${r.invited} waiting` : '', r.no ? `${r.no} not coming` : ''].filter(Boolean).join(', ')}<span class="sub-more"> of ${invites} ${invites === 1 ? 'invitation' : 'invitations'}</span></p>` : `<p class="t-sub">No one on the list yet</p>`}
+    ${avs ? `<div class="avs" aria-hidden="true">${avs}</div>` : ''}
   </article>`;
 }
 function tasksTile(e){
   const {d} = homeData(e), go = `<button class="tile-link" data-act="open-tasks" data-id="${esc(e.id)}" aria-label="Open the checklist for ${esc(e.name)}"></button>`;
-  if(!d.tasks) return `<article class="tile t-tasks" style="--i:7">${go}<p class="t-label">Checklist</p><div class="skel-line" style="height:70px"></div></article>`;
-  const all = [...d.tasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), done = all.filter(t => t.done).length, nextT = all.find(t => !t.done);
-  return `<article class="tile t-tasks fx fx-edge" style="--i:7">${go}
-    <p class="t-label">Checklist</p>
-    <div class="t-big"><b data-count="${done}">${done}</b><span>of ${all.length} done</span></div>
-    <div class="ticks" aria-hidden="true">${all.slice(0, 24).map((t, i) => `<i class="${t.done ? 'on' : ''}" style="--j:${i}"></i>`).join('')}</div>
-    <p class="t-sub">${nextT ? `Next: ${esc(nextT.text)}` : all.length ? 'All done. Time to celebrate.' : 'Add the first task'}</p>
+  if(!d.tasks) return `<article class="tile t-tasks" style="--i:5">${go}${head('Checklist', e.name)}<div class="skel-line" style="height:76px"></div></article>`;
+  const today = E.today(), open = d.tasks.filter(t => !t.done), done = d.tasks.length - open.length;
+  // what to do next: overdue, then today, then the soonest due, then the checklist's own order
+  const nextT = [...open].sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || (a.due || '').localeCompare(b.due || '') || (a.order ?? 0) - (b.order ?? 0))[0];
+  const p = d.tasks.length ? done / d.tasks.length : 0;
+  return `<article class="tile t-tasks fx fx-edge" style="--i:5">${go}${head('Checklist', e.name)}
+    <div class="t-fig"><b data-count="${done}">${done}</b><span>of ${d.tasks.length} done</span></div>
+    <div class="t-bar" aria-hidden="true"><i style="--w:${(p * 100).toFixed(1)}%"></i></div>
+    <p class="t-sub">${nextT ? `${nextT.due && nextT.due < today ? '<b class="late">Overdue:</b> ' : 'Next: '}${esc(nextT.text)}` : d.tasks.length ? 'All done. Time to celebrate.' : 'Add the first task'}</p>
   </article>`;
 }
-/* this week across every upcoming event: tasks due and overdue */
+/* this week across every upcoming event: overdue first, then today, then the rest of the week */
 const addDays = (iso, n) => { const d = new Date(iso + 'T00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 function weekTile(up){
-  const today = E.today(), lim = addDays(today, 7), items = [];
-  up.slice(0, 6).forEach(e => (S.home[e.id]?.tasks || []).filter(t => !t.done && t.due && t.due <= lim).forEach(t => items.push({e, t})));
-  items.sort((a, b) => a.t.due < b.t.due ? -1 : a.t.due > b.t.due ? 1 : 0);
-  const label = due => due < today ? 'Overdue' : due === today ? 'Today' : due === addDays(today, 1) ? 'Tomorrow' : new Date(due + 'T00:00').toLocaleDateString('en-IN', {weekday:'short', day:'numeric'});
-  const rows = items.slice(0, 5).map(({e, t}) => `<button class="wk-row" data-act="open-tasks" data-id="${esc(e.id)}"><span class="wk-date${t.due < today ? ' late' : ''}">${label(t.due)}</span><span class="grow"><b>${esc(t.text)}</b><small>${esc(e.name)}</small></span>${icon('chevron_right')}</button>`).join('');
-  return `<section class="tile t-week" style="--i:8"><p class="t-label">This week</p>${rows || `<p class="wk-empty">A clear week. Give tasks a due date and they’ll gather here.</p>`}${items.length > 5 ? `<p class="wk-more">${items.length - 5} more on the checklists</p>` : ''}</section>`;
+  const today = E.today(), lim = addDays(today, 7), due = [], later = [];
+  const loaded = up.every(e => S.home[e.id]?.tasks);
+  up.forEach(e => (S.home[e.id]?.tasks || []).filter(t => !t.done).forEach(t => (t.due && t.due <= lim ? due : later).push({e, t})));
+  due.sort((a, b) => a.t.due < b.t.due ? -1 : a.t.due > b.t.due ? 1 : 0);
+  later.sort((a, b) => (a.e.date || '9999').localeCompare(b.e.date || '9999') || (a.t.due || '9999').localeCompare(b.t.due || '9999') || (a.t.order ?? 0) - (b.t.order ?? 0));
+  const label = d => !d ? 'To do' : d < today ? 'Overdue' : d === today ? 'Today' : d === addDays(today, 1) ? 'Tomorrow' : new Date(d + 'T00:00').toLocaleDateString('en-IN', {weekday:'short', day:'numeric'});
+  const row = ({e, t}) => `<button class="wk-row" data-act="open-tasks" data-id="${esc(e.id)}"><span class="wk-date${t.due && t.due < today ? ' late' : t.due === today ? ' now' : ''}">${label(t.due)}</span><span class="grow"><b>${esc(t.text)}</b><small>${esc(e.name)}</small></span>${icon('chevron_right')}</button>`;
+  let body;
+  if(!loaded && !due.length) body = `<div class="skel-line" style="height:84px"></div>`;
+  else if(due.length) body = due.slice(0, 4).map(row).join('') + (due.length > 4 ? `<p class="wk-more">${due.length - 4} more due this week</p>` : '');
+  else body = `<p class="wk-empty">Nothing due this week.${later.length ? ' Coming up next:' : ''}</p>${later.slice(0, 3).map(row).join('')}`;
+  return `<section class="tile t-week" style="--i:6">${head('This week', 'All events')}${body}</section>`;
 }
 /* the other celebrations, each on its own card */
 function evCard(e){
-  const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), face = cardFace(e, [640, 250]);
+  const t = E.TYPES[e.type] || E.TYPES.party, n = E.daysUntil(e.date), face = cardFace(e, 'ev');
   const when = e.date ? new Date(e.date + 'T00:00').toLocaleDateString('en-IN', {weekday:'short', day:'numeric', month:'short', year:n != null && Math.abs(n) > 300 ? 'numeric' : undefined}) : 'Date to be set';
-  const days = n == null ? '' : n === 0 ? `<span class="ev-days"><b class="foil-num">Today</b></span>` : n > 0 ? `<span class="ev-days"><b class="foil-num">${n}</b>${n === 1 ? 'day' : 'days'}</span>` : '';
+  const days = n == null ? '' : n === 0 ? `<span class="ev-days"><b>Today</b></span>` : n > 0 ? `<span class="ev-days"><b>${n}</b>${n === 1 ? 'day' : 'days'}</span>` : '';
   return `<button class="ev-card fx fx-tilt" data-act="open-event" data-id="${esc(e.id)}">
-    <span class="ev-face tone-${face.tone}">${face.html}<span class="ev-kind">${icon(t.icon, false, 'xs')}${esc(t.label)}</span></span>
+    <span class="ev-face tone-${face.tone}" data-art="ev" data-eid="${esc(e.id)}">${face.html}<span class="ev-kind">${icon(t.icon, false, 'xs')}${esc(t.label)}</span></span>
     <span class="ev-body"><b class="ev-name">${esc(e.name)}</b><span class="ev-foot"><span class="ev-when">${esc(when)}${e.venue ? `<br><small>${esc(e.venue)}</small>` : ''}</span>${days}</span></span>
   </button>`;
 }
-const newCard = () => `<button class="ev-card ev-new fx" data-act="new-event"><span class="ev-new-ic">${icon('add')}</span><b>Plan a new event</b><small>Weddings, birthdays, Diwali, corporate…</small></button>`;
 /* the next few events' guests, money and tasks, for the home screen */
 let homeUnsubs = [], homeFor = '';
 function stopHomeData(){ homeUnsubs.forEach(u => { try{ u(); }catch(e){} }); homeUnsubs = []; homeFor = ''; }
 function ensureHomeData(){
   if(S.cur || S.gate || !S.evLoaded || Store.mode === 'loading') return;
-  const up = [...S.events].sort(byDate).filter(e => !e.date || E.daysUntil(e.date) >= 0).slice(0, 6), key = up.map(e => e.id).join();
+  const up = [...S.events].sort(byDate).filter(e => !e.date || E.daysUntil(e.date) >= 0).slice(0, 24), key = up.map(e => e.id).join();
   if(key === homeFor) return;
   stopHomeData(); homeFor = key;
   const first = up.find(e => e.date) || up[0];
@@ -264,9 +294,9 @@ function overviewView(ev){
   const notes = S.mood.filter(m => m.kind === 'note').length, pal = ev.theme?.palette || [];
   const total = st.rows.length, pct = k => total ? st.rsvp[k] / total * 100 : 0;
   const runNext = E.run.nowNext(), nextRun = runNext.now || runNext.next;
-  const face = cardFace(ev, innerWidth < 700 ? [400, 560] : [1120, 480]);
+  const face = cardFace(ev, 'ov');
   const hero = `<section class="ov-hero ov-art tone-${face.tone}">
-      <div class="hero-face">${face.html}</div>
+      <div class="hero-face" data-art="ov" data-eid="${esc(ev.id)}">${face.html}</div>
       <div class="inv-body">
         <p class="hero-k">${icon(t.icon, false, 'xs')} ${esc(t.label)}</p>
         <h1 class="ev-title">${esc(ev.name)}</h1>

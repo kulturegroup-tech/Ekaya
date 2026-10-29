@@ -16,7 +16,7 @@ function apply(){
   const r = el.getBoundingClientRect(); if(!r.width) return;
   const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
   el.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); el.style.setProperty('--my', (y * 100).toFixed(1) + '%');
-  if(el.classList.contains('fx-tilt') && !reduce.matches){ const k = Math.min(1, 560 / r.width); el.style.setProperty('--rx', ((0.5 - y) * 5 * k).toFixed(2) + 'deg'); el.style.setProperty('--ry', ((x - 0.5) * 6 * k).toFixed(2) + 'deg'); }
+  if(el.classList.contains('fx-tilt') && !reduce.matches){ const k = Math.min(1, 560 / r.width); el.style.setProperty('--rx', ((0.5 - y) * 2 * k).toFixed(2) + 'deg'); el.style.setProperty('--ry', ((x - 0.5) * 2.4 * k).toFixed(2) + 'deg'); }
   el.classList.add('fx-on');
 }
 document.addEventListener('pointermove', e => { if(e.pointerType !== 'mouse' && e.pointerType !== 'pen') return; last = e; if(!raf) raf = requestAnimationFrame(apply); }, {passive:true});
@@ -28,7 +28,7 @@ const shown = new Map();
 const fmt = (el, v) => el.dataset.fmt === 'inr' ? E.inr(Math.round(v)) : String(Math.round(v));
 function roll(el, from, to){
   if(reduce.matches || from === to){ el.textContent = fmt(el, to); return; }
-  const t0 = performance.now(), dur = from === 0 ? 950 : 650;
+  const t0 = performance.now(), dur = from === 0 ? 320 : 200;
   el.textContent = fmt(el, from);
   const step = now => { if(!el.isConnected) return; const k = Math.min(1, (now - t0) / dur), e2 = 1 - Math.pow(1 - k, 3); el.textContent = fmt(el, from + (to - from) * e2); if(k < 1) requestAnimationFrame(step); };
   requestAnimationFrame(step);
@@ -44,7 +44,7 @@ function dress(root){
 }
 /** after each render: dress cards, animate numbers and mark tiles that are new on screen so their rings and bars fill in */
 function after(root, entered){
-  if(entered) shown.clear();
+  // numbers count up the first time they appear in a session, not on every visit
   dress(root);
   root.querySelectorAll('[data-count]').forEach(el => {
     const host = el.closest('[data-ck], .tile, .ev-card, section') || root, i = [...host.querySelectorAll('[data-count]')].indexOf(el);

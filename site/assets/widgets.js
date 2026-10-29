@@ -35,19 +35,19 @@ const clockHtml = () => {
   for(let i = 0; i < 60; i++){ if(i % 15 === 0) continue; const big = i % 5 === 0; ticks += `<line x1="60" y1="${big ? 9 : 9.5}" x2="60" y2="${big ? 15 : 12}" transform="rotate(${i * 6} 60 60)" class="tk${big ? ' big' : ''}"/>`; }
   const num = (t, x, y) => `<text x="${x}" y="${y}" class="num" text-anchor="middle" dominant-baseline="central">${t}</text>`;
   const t = d.toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit', hour12:true}).split(' ');
-  return `<section class="tile t-clock fx fx-edge" style="--i:1" aria-label="Clock">
+  return `<section class="tile t-clock fx fx-edge" style="--i:7" aria-label="Clock">
     <div class="clock-in"><svg class="dial" viewBox="0 0 120 120" aria-hidden="true">
       <circle cx="60" cy="60" r="57" class="face"/>
       <circle cx="60" cy="60" r="57" fill="none" stroke="url(#foil)" stroke-width="2"/>
       <circle cx="60" cy="60" r="52" fill="none" class="ring2"/>
       ${ticks}${num('3', 99, 60)}${num('6', 60, 100)}${num('9', 21, 60)}
       <path transform="translate(60 18) scale(.5)" d="M0-15C6-7 7 2 0 8-7 2-6-7 0-15Z" fill="url(#foil)"/>
-      <g class="hand hh" style="animation-delay:-${(hr * 3600).toFixed(1)}s"><path d="M60 66L58 60L60 33L62 60Z" class="hp"/></g>
-      <g class="hand mh" style="animation-delay:-${(min * 60).toFixed(1)}s"><path d="M60 68L58.6 60L60 18L61.4 60Z" class="mp"/></g>
-      <g class="hand sh" style="animation-delay:-${sec.toFixed(2)}s"><line x1="60" y1="72" x2="60" y2="14" class="sp"/><circle cx="60" cy="60" r="2.6" class="sc"/></g>
+      <g class="hand hh" id="w-hh" style="animation-delay:-${(hr * 3600).toFixed(1)}s;--a:${(hr * 30).toFixed(2)}deg"><path d="M60 66L58 60L60 33L62 60Z" class="hp"/></g>
+      <g class="hand mh" id="w-mh" style="animation-delay:-${(min * 60).toFixed(1)}s;--a:${(min * 6).toFixed(2)}deg"><path d="M60 68L58.6 60L60 18L61.4 60Z" class="mp"/></g>
+      <g class="hand sh" id="w-sh" style="animation-delay:-${sec.toFixed(2)}s;--a:${(sec * 6).toFixed(2)}deg"><line x1="60" y1="72" x2="60" y2="14" class="sp"/><circle cx="60" cy="60" r="2.6" class="sc"/></g>
       <circle cx="60" cy="60" r="1.2" fill="#fff" opacity=".8"/>
     </svg>
-    <div class="clock-txt"><div class="w-time"><b id="w-time">${t[0]}</b><span id="w-ampm">${(t[1] || '').toLowerCase()}</span></div><p class="w-date" id="w-date">${d.toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'short'})}</p><p class="w-zone" id="w-zone"></p></div></div>
+    <div class="clock-txt"><div class="w-time"><b id="w-time">${t[0]}</b><span id="w-ampm">${(t[1] || '').toLowerCase()}</span></div><p class="w-zone" id="w-zone"></p></div></div>
   </section>`;
 };
 let lastBucket = bucket(new Date().getHours());
@@ -58,7 +58,11 @@ function tick(){
     const t = d.toLocaleTimeString('en-IN', {hour:'numeric', minute:'2-digit', hour12:true}).split(' ');
     if(tm.textContent !== t[0]){ tm.innerHTML = `<span class="roll">${t[0]}</span>`; }
     const ap = document.getElementById('w-ampm'); if(ap) ap.textContent = (t[1] || '').toLowerCase();
-    const z = document.getElementById('w-zone'); if(z && !z.textContent){ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; z.textContent = tz === 'Asia/Calcutta' || tz === 'Asia/Kolkata' ? 'India time' : tz.replace(/_/g, ' '); }
+    // only mention the time zone when it isn't India's
+    const z = document.getElementById('w-zone'); if(z && !z.textContent){ const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; if(tz !== 'Asia/Calcutta' && tz !== 'Asia/Kolkata') z.textContent = tz.replace(/_/g, ' ') + ' time'; }
+    // with reduced motion the hands don't sweep, so place them each second
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){ const s = d.getSeconds(), m = d.getMinutes() + s / 60, hr = (h % 12) + m / 60;
+      [['w-hh', hr * 30], ['w-mh', m * 6], ['w-sh', s * 6]].forEach(([id, a]) => { const g = document.getElementById(id); if(g) g.style.setProperty('--a', a.toFixed(2) + 'deg'); }); }
   }
   const b = bucket(h);
   if(b !== lastBucket){ lastBucket = b; if(!E.S.cur && !E.S.gate) E.render(); }
@@ -103,24 +107,25 @@ function current(){
   const s = W.data && W.data.series; if(!s || !s.length) return null;
   const now = Date.now(); let i = s.findIndex(x => Date.parse(x.t) > now) - 1; if(i < 0) i = 0;
   const today = E.today(), todays = s.filter(x => localDay(x.t) === today).map(x => x.temp);
-  const next = s.slice(i + 1).filter(x => x.span === 1).slice(0, 5);
-  return {now:s[i], hi:todays.length ? Math.max(...todays) : null, lo:todays.length ? Math.min(...todays) : null, next};
+  // the evening is what matters for a party: 6, 8 and 10 pm today (or tomorrow once it's late)
+  const hourly = s.filter(x => x.span === 1), day = new Date().getHours() >= 22 ? localDay(Date.now() + 864e5) : today;
+  const eve = [18, 20, 22].map(H => hourly.find(x => localDay(x.t) === day && new Date(x.t).getHours() === H)).filter(Boolean).filter(x => Date.parse(x.t) > now - 3600e3);
+  return {now:s[i], hi:todays.length ? Math.max(...todays) : null, lo:todays.length ? Math.min(...todays) : null, next:eve, eveLabel:day === today ? 'This evening' : 'Tomorrow evening'};
 }
 /* the weather tile is a window: its sky follows the conditions and the hour */
 const skyOf = sym => { const k = kind(sym), h = new Date().getHours(); if(k === 'rain' || k === 'thunder') return 'rain'; if(k === 'snow' || k === 'fog') return 'fog'; if(isNight(sym) || h >= 20 || h < 5) return 'night'; if(h >= 17) return 'dusk'; if(k === 'cloud') return 'cloud'; return 'day'; };
 function weatherHtml(){
   if(!E.onNetlify()) return '';
   const c = current(), place = `<button class="w-place" data-act="weather-place" aria-label="Change weather location">${icon('location_on', false, 'xs')}${esc(W.loc.name)}</button>`;
-  if(!c) return `<section class="tile t-wx sky-day" id="w-weather" style="--i:2"><div class="w-head">${place}<span class="w-src">MET Norway</span></div>
+  if(!c) return `<section class="tile t-wx sky-day" id="w-weather" style="--i:8"><div class="w-head">${place}<span class="w-src">MET Norway</span></div>
     ${W.err ? `<button class="w-retry" data-act="weather-retry">${icon('cloud_off')}<span>Weather is resting.<br><small>Tap to try again.</small></span></button>` : `<div class="w-now skel-line"></div>`}</section>`;
   const hr = t => new Date(t).toLocaleTimeString('en-IN', {hour:'numeric', hour12:true}).replace(' ', '').toLowerCase();
   const sky = skyOf(c.now.sym);
-  return `<section class="tile t-wx sky-${sky} fx fx-edge" id="w-weather" style="--i:2">
+  return `<section class="tile t-wx sky-${sky} fx fx-edge" id="w-weather" style="--i:8">
     ${sky === 'night' ? `<span class="w-stars" aria-hidden="true">${[[12, 18], [30, 10], [58, 22], [74, 9], [88, 30], [46, 36], [20, 44]].map(([x, y], i) => `<i style="left:${x}%;top:${y}%;animation-delay:${(i * 0.7).toFixed(1)}s"></i>`).join('')}</span>` : sky === 'rain' ? '<span class="w-rain" aria-hidden="true"></span>' : ''}
     <div class="w-head">${place}<span class="w-src">MET Norway</span></div>
-    <div class="w-now">${wx(c.now.sym, 52)}<b><span data-count="${Math.round(c.now.temp)}">${Math.round(c.now.temp)}</span>°</b></div>
-    <p class="w-cond"><span>${describe(c.now.sym)}</span>${c.hi != null ? `<small>High ${Math.round(c.hi)}°, low ${Math.round(c.lo)}°</small>` : ''}</p>
-    ${c.next.length ? `<div class="w-hours">${c.next.slice(0, 4).map(x => `<div><small>${hr(x.t)}</small>${wx(x.sym, 24)}<b>${Math.round(x.temp)}°</b></div>`).join('')}</div>` : ''}
+    <div class="w-now">${wx(c.now.sym, 52)}<b><span data-count="${Math.round(c.now.temp)}">${Math.round(c.now.temp)}</span>°</b><p class="w-cond"><span>${describe(c.now.sym)}</span>${c.hi != null ? `<small>High ${Math.round(c.hi)}°, low ${Math.round(c.lo)}°</small>` : ''}</p></div>
+    ${c.next.length ? `<div class="w-eve" aria-label="${c.eveLabel}">${c.next.map(x => `<span>${hr(x.t)}<b>${Math.round(x.temp)}°</b></span>`).join('')}</div>` : ''}
   </section>`;
 }
 /* the forecast for an event's evening, once it's within MET's ten-day range */
