@@ -26,3 +26,11 @@
   [headers.values]
     Cache-Control = "no-cache"
     Service-Worker-Allowed = "/"
+
+# guest invitation pages: private links, so no referrer, no indexing
+[[headers]]
+  for = "/i/*"
+  [headers.values]
+    Referrer-Policy = "no-referrer"
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"

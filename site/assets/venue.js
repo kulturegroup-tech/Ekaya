@@ -787,7 +787,7 @@ function seatSheet(st){
   const it = selItem(st); if(!it || !S.canWrite || !CAT[it.type]?.table) return;
   const seats = seatsOf(it), name = labelOf(it) || CAT[it.type].label, tables = new Map(st.plan.items.filter(i => CAT[i.type]?.table).map(i => [i.id, labelOf(i) || CAT[i.type].label]));
   let q = '';
-  const ppl = () => [...S.people].filter(p => p.rsvp !== 'no').sort((a, b) => (b.tableId === it.id) - (a.tableId === it.id) || a.name.localeCompare(b.name));
+  const ppl = () => E.effPeople().filter(p => p.rsvp !== 'no').sort((a, b) => (b.tableId === it.id) - (a.tableId === it.id) || a.name.localeCompare(b.name));
   const used = () => S.people.filter(p => p.tableId === it.id).reduce((a, p) => a + 1 + (+p.plusOnes || 0), 0);
   const list = () => { const rows = ppl().filter(p => !q || p.name.toLowerCase().includes(q)); return rows.length ? rows.map(p => { const on = p.tableId === it.id, other = !on && p.tableId && tables.get(p.tableId), n = 1 + (+p.plusOnes || 0);
       return `<button class="seat-row" type="button" data-p="${esc(p.id)}" aria-pressed="${on}"><span class="seat-box">${icon('check', false, 'xs')}</span><span class="grow"><b>${esc(p.name)}</b><small>${[n > 1 ? `${n} people` : '', other ? `at ${esc(other)} now` : '', p.rsvp === 'going' ? '' : p.rsvp === 'maybe' ? 'Maybe' : 'Not replied'].filter(Boolean).join(' · ')}</small></span></button>`; }).join('')

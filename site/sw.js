@@ -1,8 +1,8 @@
 /* Ekaya service worker: opens instantly and works offline at venues.
    Pages, scripts and styles: network first (fresh after every deploy), cached copy when offline.
    Fonts, icons, 3D library and uploaded mood photos: cache first. The data API is never cached. */
-const V = 'ekaya-v12';
-const SHELL = ['/', '/assets/app.css', '/assets/core.js', '/assets/art.js', '/assets/fx.js', '/assets/sync.js', '/assets/venue.js', '/assets/venue3d.js', '/assets/photos.js', '/assets/runsheet.js', '/assets/widgets.js', '/assets/app.js',
+const V = 'ekaya-v13';
+const SHELL = ['/', '/assets/app.css', '/assets/core.js', '/assets/art.js', '/assets/fx.js', '/assets/sync.js', '/assets/venue.js', '/assets/venue3d.js', '/assets/photos.js', '/assets/runsheet.js', '/assets/widgets.js', '/assets/invites.js', '/assets/app.js',
   '/assets/icons.svg', '/assets/brand.svg', '/assets/vendor/qrcode.js', '/assets/fonts/inter.woff2', '/assets/fonts/newsreader.woff2', '/assets/fonts/newsreader-italic.woff2', '/assets/favicon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -38,6 +38,7 @@ self.addEventListener('fetch', e => {
   const p = url.pathname;
   if(LONG.test(p)) { e.respondWith(cacheFirst(req)); return; }
   if(p.startsWith('/api/') || p === '/sw.js') return;
-  if(req.mode === 'navigate'){ e.respondWith(networkFirst(req, p.startsWith('/g/') ? '/g/' : '/')); return; }
-  if(/^\/(assets\/|g\/|manifest)/.test(p)) e.respondWith(networkFirst(req));
+  // the photo wall and invitations are their own pages: never cache them in place of the app
+  if(req.mode === 'navigate'){ e.respondWith(networkFirst(req, p.startsWith('/g/') ? '/g/' : p.startsWith('/i/') ? '/i/' : '/')); return; }
+  if(/^\/(assets\/|g\/|i\/|manifest)/.test(p)) e.respondWith(networkFirst(req));
 });

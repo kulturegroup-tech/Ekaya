@@ -132,7 +132,7 @@ E.Store = (() => {
 
 /* ---------- state ---------- */
 const S = E.S = { canWrite:true, events:[], evLoaded:false, cur:null, tab:'overview', sub:{plan:'venue', budget:'collect'}, filter:'all', query:'', doneOpen:false,
-  people:[], expenses:[], payments:[], income:[], run:[], mood:[], tasks:[], venue:[], loaded:{}, assets:null, justCreated:null, home:{} };
+  people:[], expenses:[], payments:[], income:[], run:[], mood:[], tasks:[], venue:[], replies:[], claims:[], loaded:{}, assets:null, justCreated:null, home:{} };
 E.curEv = () => S.events.find(e => e.id === S.cur);
 E.evPath = (sub, id) => `events/${S.cur}/${sub}` + (id ? `/${id}` : '');
 
@@ -211,8 +211,22 @@ E.coverHtml = (ev, cls = '') => {
    older receipts stored on the guest (p.payments) are still counted. */
 const hasCustom = p => p.expected !== null && p.expected !== undefined && p.expected !== '';
 E.receipts = (p, payments) => (p.payments || []).map(x => ({...x, legacy:true})).concat((payments || []).filter(x => x.guestId === p.id));
-E.stats = (ev, people, expenses, payments = E.S.payments, income = E.S.income) => {
+/* replies from a household's invitation link (events/{id}/replies/{guest}, written by the server).
+   A reply applies on its own. Once Ekta changes that guest's RSVP or headcount herself, p.ovr records which reply she
+   had seen: later replies then wait for her review instead of overriding her. Same rule as netlify/functions/invite.mjs. */
+E.maxPeople = p => Math.max(1, Math.min(20, +p.maxPeople || 1 + (+p.plusOnes || 0)));
+E.applyReply = (p, r) => {
+  if(!r || !r.rev) return {...p, reply:null, review:false};
+  const fromReply = {rsvp:r.rsvp, plusOnes:r.rsvp === 'no' ? +p.plusOnes || 0 : Math.max(0, (+r.coming || 1) - 1)};
+  const ovr = p.ovr === null || p.ovr === undefined ? -1 : +p.ovr;
+  if(ovr >= r.rev) return {...p, reply:r, review:false};
+  if(ovr >= 0){ const same = fromReply.rsvp === p.rsvp && (r.rsvp === 'no' || fromReply.plusOnes === (+p.plusOnes || 0)); return {...p, reply:r, review:!same}; }
+  return {...p, ...fromReply, reply:r, review:false};
+};
+E.effPeople = (people = E.S.people, replies = E.S.replies) => { const rm = new Map((replies || []).map(r => [r.guestId || r.id, r])); return people.map(p => E.applyReply(p, rm.get(p.id))); };
+E.stats = (ev, people, expenses, payments = E.S.payments, income = E.S.income, replies = people === E.S.people ? E.S.replies : null) => {
   const contri = E.contriOn(ev), per = +ev.perHead || 0;
+  if(replies && replies.length){ const rm = new Map(replies.map(r => [r.guestId || r.id, r])); people = people.map(p => E.applyReply(p, rm.get(p.id))); }
   const ids = new Set(people.map(p => p.id));
   const rows = people.map(p => {
     const rec = E.receipts(p, payments).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
@@ -258,7 +272,7 @@ E.stats = (ev, people, expenses, payments = E.S.payments, income = E.S.income) =
     pendingCount:rows.filter(r => r.due > 0).length, paidCount:rows.filter(r => r.status === 'paid').length,
     budget:(+ev.budget || planTotal), sharers, splitPeople, uniform, perPerson: splitPeople ? net / splitPeople : 0,
     rsvp:{going:count('going'), maybe:count('maybe'), no:count('no'), invited:count('invited')},
-    headcount: going.reduce((a,r) => a + r.people, 0)};
+    headcount: going.reduce((a,r) => a + r.people, 0), replied:rows.filter(r => r.reply).length, review:rows.filter(r => r.review).length};
 };
 
 /* ---------- sheets ---------- */

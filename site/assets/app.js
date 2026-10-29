@@ -10,7 +10,7 @@ const lsSet = (k, v) => { try{ if(v === null) localStorage.removeItem(k); else l
 
 /* ---------- render ---------- */
 let lastKey = '';
-const SUBCOLS = ['people','expenses','payments','income','run','mood','tasks','venue'];
+const SUBCOLS = ['people','expenses','payments','income','run','mood','tasks','venue','replies','claims'];
 const TABS = [['overview','space_dashboard','Overview'],['guests','groups','Guests'],['plan','architecture','Plan'],['budget','account_balance_wallet','Budget'],['photos','photo_library','Photos']];
 const PLAN_SUB = [['venue','map','Venue'],['run','schedule','Run sheet'],['mood','auto_awesome_mosaic','Mood board'],['tasks','checklist','Checklist']];
 const BUDGET_SUB = [['collect','payments','Collections'],['expenses','receipt_long','Expenses'],['settle','balance','Settle up']];
@@ -134,13 +134,15 @@ function homeView(){
 const dueThisWeek = up => { const lim = addDays(E.today(), 7); let n = 0; up.forEach(e => (S.home[e.id]?.tasks || []).forEach(t => { if(!t.done && t.due && t.due <= lim) n++; })); return n; };
 function helloLine(up, next){
   if(!up.length) return 'Nothing on the calendar yet.';
-  const {st} = homeData(next), due = dueThisWeek(up), parts = [];
+  const {st, d} = homeData(next), due = dueThisWeek(up), parts = [];
+  const claims = (d.claims || []).filter(c => c.status !== 'confirmed' && c.status !== 'declined' && !(d.payments || []).some(x => x.id === 'rc' + c.id)).length;
+  if(claims) parts.push(`${claims} ${claims === 1 ? 'payment' : 'payments'} to confirm for ${esc(next.name)}`);
   if(st && st.contri && st.pendingCount) parts.push(`${st.pendingCount} ${st.pendingCount === 1 ? 'person' : 'people'} still to pay for ${esc(next.name)}`);
   if(due) parts.push(`${due} ${due === 1 ? 'task' : 'tasks'} due this week`);
   if(parts.length) return parts.join(', and ') + '.';
   return st ? `Everything is on track for ${esc(next.name)}.` : `${up.length} ${up.length === 1 ? 'celebration' : 'celebrations'} in the works.`;
 }
-const homeData = e => { const d = S.home[e.id] || {}, loaded = d.people && d.expenses && d.tasks; return {d, loaded, st:loaded ? E.stats(e, d.people, d.expenses, d.payments || [], d.income || []) : null}; };
+const homeData = e => { const d = S.home[e.id] || {}, loaded = d.people && d.expenses && d.tasks; return {d, loaded, st:loaded ? E.stats(e, d.people, d.expenses, d.payments || [], d.income || [], d.replies || []) : null}; };
 /* artwork is drawn for the size its card really is (measured after each render, see fitArt) */
 const ART_AT = {hero:null, ev:null, ov:null};
 const artGuess = slot => ART_AT[slot] || (slot === 'ev' ? [Math.min(420, innerWidth - 32), 150] : slot === 'ov' ? [Math.min(1120, innerWidth - (innerWidth >= 1000 ? 320 : 32)), innerWidth < 700 ? 420 : 400] : innerWidth < 700 ? [innerWidth - 32, 300] : innerWidth < 1100 ? [Math.round((innerWidth - 32) * 0.66), 300] : [620, 320]);
@@ -266,7 +268,7 @@ function ensureHomeData(){
   if(key === homeFor) return;
   stopHomeData(); homeFor = key;
   const first = up.find(e => e.date) || up[0];
-  up.forEach(e => (e === first ? ['people', 'payments', 'income', 'expenses', 'tasks'] : ['tasks']).forEach(k => homeUnsubs.push(Store.subscribe(`events/${e.id}/${k}`, rows => { (S.home[e.id] ||= {})[k] = rows; if(!S.cur) render(); }, onSubErr))));
+  up.forEach(e => (e === first ? ['people', 'payments', 'income', 'expenses', 'tasks', 'replies', 'claims'] : ['tasks']).forEach(k => homeUnsubs.push(Store.subscribe(`events/${e.id}/${k}`, rows => { (S.home[e.id] ||= {})[k] = rows; if(!S.cur) render(); }, onSubErr))));
 }
 function homeEmpty(){
   if(!S.canWrite) return `<section class="empty plain"><span class="empty-ic">${icon('celebration')}</span><h3>No events yet</h3><p>Events appear here once they’re added.</p></section>`;
@@ -351,7 +353,7 @@ function guestRow(r, st, sub){
 }
 /* what needs Ekta today, each line opens the place to fix it */
 function attentionCard(ev, st, n){
-  const today = E.today(), items = [], soon = n != null && n >= 0;
+  const today = E.today(), items = E.inv.attention(ev, st), soon = n != null && n >= 0;
   if(st.contri && st.pendingCount) items.push(['payments', `${st.pendingCount} ${st.pendingCount === 1 ? 'contribution' : 'contributions'} still due`, inr(st.pending), 'data-act="filter-go" data-f="due"', 'bad']);
   if(!ev.date) items.push(['calendar_month', 'Date not set', '', 'data-act="edit-event"']);
   if(!ev.venue) items.push(['location_on', 'Venue not set', '', 'data-act="edit-event"']);
@@ -375,15 +377,16 @@ function guestsView(ev){
   const filters = [['all','All',total]].concat(st.contri ? [['due','Payment due',st.pendingCount],['paid','Paid',st.paidCount]] : [], rsvpF);
   const pct = k => total ? st.rsvp[k] / total * 100 : 0;
   const head = `<section class="vhead">${eyebrow(ev)}<div class="vhead-row"><h1 class="h1">Guest list</h1>
-      <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${st.contri ? `<button class="btn ghost" data-act="collect">${icon('currency_rupee')}Payment</button>` : ''}` : ''}<button class="btn ghost" data-act="invite-msg">${icon('chat')}Invite</button>${total ? `<button class="icon-btn" data-act="export-guests" aria-label="Download guest list as a spreadsheet">${icon('download')}</button>` : ''}</div></div></section>
+      <div class="chips">${S.canWrite ? `<button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${st.contri ? `<button class="btn ghost" data-act="collect">${icon('currency_rupee')}Payment</button>` : ''}` : ''}${E.inv.ready() ? `<button class="btn ghost" data-act="inv-sheet">${icon('mail')}Invitations</button>` : `<button class="btn ghost" data-act="invite-msg">${icon('chat')}Invite</button>`}${total ? `<button class="icon-btn" data-act="export-guests" aria-label="Download guest list as a spreadsheet">${icon('download')}</button>` : ''}</div></div></section>
     <div class="stat-row"><div><span>Invited</span><b>${total}</b><small>${st.rows.reduce((a, r) => a + r.plusOnes, 0)} plus-ones</small></div><div><span>Headcount</span><b class="good">${st.headcount}</b><small>coming incl. plus-ones</small></div><div><span>Maybe</span><b class="gold">${st.rsvp.maybe}</b><small>${st.rsvp.invited} not replied</small></div>
       ${st.contri ? `<button class="stat-btn" data-act="filter" data-f="due"><span>Contri</span><b class="${st.pending ? 'bad' : 'good'}">${st.paidCount}/${st.sharers.length}</b><small>${st.pending ? `${inr(st.pending)} still due` : 'all paid'}</small></button>` : `<div><span>Not coming</span><b>${st.rsvp.no}</b><small>declined</small></div>`}</div>
-    ${total ? `<div class="card plain" style="gap:10px;padding:16px 18px"><div class="rsvp-bar">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</div><div class="rsvp-legend">${['going','maybe','invited','no'].map(k => `<span><i class="bg-${k}"></i>${RSVP[k][0]} ${st.rsvp[k]}</span>`).join('')}</div></div>` : ''}`;
+    ${total ? `<div class="card plain" style="gap:10px;padding:16px 18px"><div class="rsvp-bar">${['going','maybe','invited','no'].map(k => pct(k) ? `<i class="bg-${k}" style="width:${pct(k)}%"></i>` : '').join('')}</div><div class="rsvp-legend">${['going','maybe','invited','no'].map(k => `<span><i class="bg-${k}"></i>${RSVP[k][0]} ${st.rsvp[k]}</span>`).join('')}</div></div>` : ''}${E.inv.activity(ev, st)}`;
   if(!total) return head + `<section class="empty plain"><span class="empty-ic">${icon('groups')}</span><h3>Start the guest list</h3><p>Paste names in one go, then track who’s coming${st.contri ? ' and who has paid their contri' : ' and their food preferences'}.</p>${S.canWrite ? `<div class="chips"><button class="btn" data-act="add-guests">${icon('person_add')}Add guests</button>${'contacts' in navigator && 'ContactsManager' in window ? `<button class="btn ghost" data-act="pick-contacts">${icon('contacts')}From contacts</button>` : ''}</div>` : ''}</section>`;
   return head + `<div class="guest-tools"><label class="search">${icon('search')}<input class="input" id="g-search" type="search" placeholder="Search guests" value="${esc(S.query)}" aria-label="Search guests"></label>
       <div class="chips wrap-m">${filters.map(([k, l, c]) => `<button class="chip" data-act="filter" data-f="${k}" aria-pressed="${f === k}">${l} <small>${c}</small></button>`).join('')}</div></div>
     <section class="list-card plain">${f === 'due' && list.length ? `<div class="lc-head"><div><b>${inr(list.reduce((a, r) => a + r.due, 0))} still due</b><br><span>${list.length} ${list.length === 1 ? 'person' : 'people'} · tap ${icon('currency_rupee', false, 'xs')} to record a payment</span></div>${S.canWrite ? `<button class="btn tonal sm" data-act="group-msg">${icon('chat')}Remind all</button>` : ''}</div>` : ''}${list.length ? list.map(r => {
-      const bits = [r.group, r.plusOnes ? `+${r.plusOnes}` : '', r.diet, r.tableId && tables.get(r.tableId) ? `Table ${tables.get(r.tableId)}` : ''].filter(Boolean);
+      const meals = r.reply && r.reply.rsvp !== 'no' ? Object.entries(r.reply.meals || {}).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`).join(', ') : '';
+      const bits = [r.review ? 'Reply to review' : '', r.group, r.plusOnes ? `+${r.plusOnes}` : '', meals || r.diet, r.tableId && tables.get(r.tableId) ? `Table ${tables.get(r.tableId)}` : ''].filter(Boolean);
       const money = st.contri && r.expected ? `${inr(r.contributed)} of ${inr(r.expected)}` : '';
       return guestRow(r, st, [money, ...bits].filter(Boolean).map(esc).join(' · ') || 'Tap to add details');
     }).join('') : `<div class="row" style="cursor:default"><span class="row-main"><span class="row-sub">No guests match.</span></span></div>`}</section>`;
@@ -540,7 +543,7 @@ function collectSheet(){
         if(!(await save(Store.set(E.evPath('people', pid), {name:who_.slice(0, 60), phone:'', expected:null, rsvp:'going', plusOnes:people - 1, group:'', diet:'', tableId:'', note:'', createdAt:Date.now()})))){ btn.disabled = false; return; }
       } else {
         const patch = {}; if(match.people !== people) patch.plusOnes = people - 1; if(match.rsvp !== 'going') patch.rsvp = 'going';
-        if(Object.keys(patch).length) await save(Store.update(E.evPath('people', pid), patch));
+        if(Object.keys(patch).length) await save(Store.update(E.evPath('people', pid), E.inv.overridePatch(match, patch)));
       }
       const ok = await save(Store.set(E.evPath('payments', 'r' + uid()), {guestId:pid, amount, mode, date:val(b, '#cs-date') || E.today(), ref:val(b, '#cs-ref'), createdAt:Date.now()}));
       btn.disabled = false; if(!ok) return;
@@ -591,10 +594,13 @@ function guestSheet(pid){
   const remind = r => r.due > 0 ? `<div class="chips"><a class="btn ghost sm" target="_blank" rel="noopener" href="${esc(E.waLink(reminderText(ev, r), r.phone))}">${icon('chat')}Remind · ${inr(r.due)}</a>${ev.upi ? `<button class="btn ghost sm" type="button" data-upi="${r.due}">${icon('qr_code_2')}UPI QR</button>` : ''}</div>` : '';
   const wline = r => w && r.rsvp === 'no' && (r.base > 0) ? `<div class="ap-line">${icon('event_busy')}<span>${r.waived ? `Not coming, so their share is waived.` : `Not coming, but their share is still payable.`}</span><button class="btn text sm" type="button" data-waive="${r.waived ? '' : '1'}">${r.waived ? 'Charge it' : 'Waive it'}</button></div>` : '';
   const contriPanel = r => !contri ? '' : `<div class="panel" id="gs-contri"><div id="gs-chead">${chead(r)}</div>
+    <div id="gs-claims">${E.inv.claimsHtml(r)}</div>
     <div id="gs-wline">${wline(r)}</div>
     ${w ? `<div class="pp-form">${payForm(r.due)}</div>` : ''}
     <div id="gs-pays">${pays(r)}</div><div id="gs-remind">${remind(r)}</div></div>`;
+  const invPanel = E.inv.ready() ? `<div class="panel inv-panel" id="gs-inv">${E.inv.panel(ev, r)}</div>` : '';
   const body = `<div id="gs-sum">${sum(r)}</div>
+    ${invPanel}
     ${contriPanel(r)}
     <div class="field"><span>RSVP</span><div class="seg" id="gs-rsvp">${['going','maybe','invited','no'].map(k => `<button type="button" data-r="${k}" aria-selected="${r.rsvp === k}" ${w ? '' : 'disabled'}>${RSVP[k][0]}</button>`).join('')}</div></div>
     <div id="gs-ask"></div>
@@ -610,7 +616,7 @@ function guestSheet(pid){
       <div class="sheet-foot" id="gd-foot"><button class="btn danger-text" type="button" id="gd-del">${icon('delete')}Remove guest</button></div></div>` : ''}`;
   openSheet({id:'guest', title:'Guest', body, mount: b => {
     const upd = patch => save(Store.update(path, patch));
-    const setRsvp = (k, extra = {}) => { $$('#gs-rsvp button', b).forEach(x => x.setAttribute('aria-selected', x.dataset.r === k)); $('#gs-ask', b).innerHTML = ''; upd({rsvp:k, ...extra}); E.vibrate(6); };
+    const setRsvp = (k, extra = {}) => { $$('#gs-rsvp button', b).forEach(x => x.setAttribute('aria-selected', x.dataset.r === k)); $('#gs-ask', b).innerHTML = ''; upd(E.inv.overridePatch(rowOf(pid), {rsvp:k, ...extra})); E.vibrate(6); };
     $('#gs-rsvp', b).addEventListener('click', e => {
       const c = e.target.closest('[data-r]'); if(!c || !w) return; const k = c.dataset.r, cur = rowOf(pid); if(!cur || cur.rsvp === k) return;
       if(k === 'no' && contri && cur.base > 0){
@@ -623,7 +629,7 @@ function guestSheet(pid){
       }
       setRsvp(k, cur.waived ? {waived:false} : {});
     });
-    b.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => { const v = Math.max(0, Math.min(20, (+$('#gs-plus', b).textContent) + (+btn.dataset.step))); $('#gs-plus', b).textContent = v; clearTimeout(b._pt); b._pt = setTimeout(() => { b._pt = 0; upd({plusOnes:v}); }, 400); }));
+    b.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => { const v = Math.max(0, Math.min(20, (+$('#gs-plus', b).textContent) + (+btn.dataset.step))); $('#gs-plus', b).textContent = v; clearTimeout(b._pt); b._pt = setTimeout(() => { b._pt = 0; const rp = raw(), patch = {plusOnes:v}; if(rp && rp.maxPeople && v + 1 > rp.maxPeople) patch.maxPeople = v + 1; upd(E.inv.overridePatch(rowOf(pid), patch)); }, 400); }));
     $('#gs-table', b).addEventListener('change', e => upd({tableId:e.target.value}));
     $('#gs-diet', b).addEventListener('click', e => { const c = e.target.closest('[data-d]'); if(!c || !w) return; const cur = c.getAttribute('aria-pressed') === 'true' ? '' : c.dataset.d; $$('#gs-diet .chip', b).forEach(x => x.setAttribute('aria-pressed', x.dataset.d === cur)); upd({diet:cur}); });
     if(w && contri) bindPayForm(b, pid);
@@ -641,6 +647,9 @@ function guestSheet(pid){
         $('#gd-keep', b).addEventListener('click', () => { closeSheet(); guestSheet(pid); });
         $('#gd-yes', b).addEventListener('click', async () => {
           for(const x of S.payments.filter(y => y.guestId === pid)) await save(Store.remove(E.evPath('payments', x.id)));
+          if(p.invite && E.inv.ready()) await E.inv.revoke(ev, [pid]).catch(() => {});
+          for(const x of S.claims.filter(y => y.guestId === pid)) await save(Store.remove(E.evPath('claims', x.id)));
+          if(S.replies.some(y => (y.guestId || y.id) === pid)) await save(Store.remove(E.evPath('replies', pid)));
           if(await save(Store.remove(path))){ closeSheet(); toast(`${p.name} removed`, 'delete'); }
         }); });
     }
@@ -658,7 +667,10 @@ function guestSheet(pid){
   }, refresh: b => {
     const rr = rowOf(pid); if(!rr){ closeSheet(); return; }
     $('#gs-sum', b).innerHTML = sum(rr);
+    const inv = $('#gs-inv', b); if(inv) inv.innerHTML = E.inv.panel(E.curEv(), rr);
+    $$('#gs-rsvp button', b).forEach(x => x.setAttribute('aria-selected', x.dataset.r === rr.rsvp));
     if($('#gs-contri', b)){
+      $('#gs-claims', b).innerHTML = E.inv.claimsHtml(rr);
       $('#gs-chead', b).innerHTML = chead(rr); $('#gs-pays', b).innerHTML = pays(rr); $('#gs-remind', b).innerHTML = remind(rr); $('#gs-wline', b).innerHTML = wline(rr);
       const amt = $('#pp-amt', b); if(amt && document.activeElement !== amt) amt.value = rr.due || '';
     }
@@ -677,7 +689,7 @@ function exportGuests(ev){
   const st = E.stats(ev, S.people, S.expenses), tables = new Map(E.venue.tables().map(t => [t.id, t.label]));
   const head = ['Name', 'Phone', 'RSVP', 'People', 'Group', 'Food', 'Table', 'Note'].concat(st.contri ? ['Share', 'Paid into pot', 'Paid directly', 'Total paid', 'Due', 'Status'] : []);
   const label = {paid:'Paid', part:'Part paid', pending:'Not paid', none:''};
-  downloadCsv(`${E.slug(ev.name)}-guests.csv`, [head, ...st.rows.map(r => [r.name, r.phone || '', RSVP[r.rsvp][0], r.people, r.group || '', r.diet || '', tables.get(r.tableId) || '', r.note || ''].concat(st.contri ? [r.expected, r.paidIn, r.direct, r.contributed, r.due, r.waived ? 'Waived' : label[r.status]] : []))]);
+  downloadCsv(`${E.slug(ev.name)}-guests.csv`, [head, ...st.rows.map(r => [r.name, r.phone || '', RSVP[r.rsvp][0], r.people, r.group || '', (r.reply && Object.entries(r.reply.meals || {}).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${n}`).join(', ')) || r.diet || '', tables.get(r.tableId) || '', [r.note, r.reply && r.reply.note].filter(Boolean).join(' / ')].concat(st.contri ? [r.expected, r.paidIn, r.direct, r.contributed, r.due, r.waived ? 'Waived' : label[r.status]] : []))]);
 }
 function exportExpenses(ev){
   const rows = [...S.expenses].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -687,10 +699,10 @@ function reminderText(ev, r){ return `Hi ${r.name.split(' ')[0]}! Gentle reminde
 function inviteText(ev){
   const n = E.daysUntil(ev.date);
   return [`You’re invited to ${ev.name}${ev.type === 'diwali' ? ' 🪔' : ' ✨'}`, '', ev.date ? `${E.fmtLong(ev.date)}${ev.time ? `, ${E.fmtTime(ev.time)}` : ''}` : '', ev.venue ? `At ${ev.venue}` : '', ev.theme?.dress ? `Dress code: ${ev.theme.dress}` : '', '',
-    E.contriOn(ev) && +ev.perHead ? `Contri: ${inr(ev.perHead)} per head${ev.upi ? ` to ${ev.upi}` : ''}` : '', 'Reply with Coming, Maybe or Can’t make it.'].filter((l, i, a) => l !== '' || (a[i - 1] && a[i - 1] !== '')).join('\n').trim();
+    E.contriOn(ev) && +ev.perHead ? `Contri: ${inr(ev.perHead)} per head${ev.upi ? ` to ${ev.upi}` : ''}` : '', E.inv.ready() && S.people.some(p => p.invite && p.invite.t) ? 'You’ll each get a personal invitation link on WhatsApp to reply.' : 'Reply with Coming, Maybe or Can’t make it.'].filter((l, i, a) => l !== '' || (a[i - 1] && a[i - 1] !== '')).join('\n').trim();
 }
 function upiSheet(ev, amount, who){
-  const link = E.upiLink(ev.upi, ev.name, amount, `${ev.name} contri`.slice(0, 50));
+  const link = E.upiLink(ev.upi, ev.upiName || ev.invite?.host || (E.Remote && E.Remote.owner()) || 'Ekaya', amount, `${ev.name} contri`.slice(0, 50));
   openSheet({title:'Pay by UPI', body:`<div class="qr-card" style="aspect-ratio:auto"><span class="qe">Scan with any UPI app</span><h3>${amount ? inr(amount) : 'Any amount'}</h3><div class="qr">${E.qrSvg(link)}</div><p>${esc(who ? `${who} · ` : '')}${esc(ev.upi)}</p></div>
     <div class="sheet-foot" style="justify-content:center"><a class="btn" href="${esc(link)}">${icon('open_in_new')}Open UPI app</a><button class="btn ghost" type="button" id="upi-copy">${icon('content_copy')}Copy UPI ID</button></div>`,
   mount: b => $('#upi-copy', b).addEventListener('click', () => E.copyText(ev.upi)) });
@@ -786,7 +798,8 @@ function moneySheet(ev){
       <div class="grid2"><label class="field"><span>People chipping in</span><input class="input" type="number" inputmode="numeric" min="0" id="m-ppl" value="${ev.contriPeople || ''}" placeholder="e.g. 30"></label>
         <label class="field"><span>From family or others</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-other" value="${ev.otherTarget || ''}" placeholder="e.g. 10000"></div></label></div>
       <p class="hint" id="m-plan"></p>
-      <label class="field"><span>UPI ID for payments</span><input class="input" id="m-upi" maxlength="80" autocapitalize="off" spellcheck="false" placeholder="name@okaxis" value="${esc(ev.upi || '')}"></label></div>
+      <div class="grid2"><label class="field"><span>UPI ID for payments</span><input class="input" id="m-upi" maxlength="80" autocapitalize="off" spellcheck="false" placeholder="name@okaxis" value="${esc(ev.upi || '')}"></label>
+        <label class="field"><span>Name on the account</span><input class="input" id="m-upiname" maxlength="40" placeholder="As your bank shows it" value="${esc(ev.upiName || '')}"></label></div></div>
     <label class="field"><span>Total budget</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-budget" value="${ev.budget || ''}" placeholder="Optional"></div></label>
     <div class="sheet-foot"><button class="btn" type="button" id="m-save">Save</button></div>`,
   mount: b => {
@@ -794,7 +807,7 @@ function moneySheet(ev){
     const plan = () => { const per = num(val(b, '#m-per')), ppl = num(val(b, '#m-ppl')), other = num(val(b, '#m-other')), bud = num(val(b, '#m-budget')), total = per * ppl + other;
       $('#m-plan', b).innerHTML = per && ppl ? `${icon('payments')}<span>Plan: ${ppl} people × ${inr(per)}${other ? ` + ${inr(other)} from family` : ''} = <b>${inr(total)}</b>${bud ? ` · budget ${inr(bud)} · ${total >= bud ? `${inr(total - bud)} cushion` : `<b class="bad">${inr(bud - total)} short</b>`}` : ''}</span>` : `${icon('info')}<span>Add the per-person amount and how many people are chipping in to track the plan.</span>`; };
     b.addEventListener('input', plan); plan();
-    $('#m-save', b).addEventListener('click', async () => { if(await save(Store.update(`events/${ev.id}`, {contri, perHead:num(val(b, '#m-per')), contriPeople:num(val(b, '#m-ppl')), otherTarget:num(val(b, '#m-other')), upi:val(b, '#m-upi'), budget:num(val(b, '#m-budget'))}))){ closeSheet(); toast('Money settings saved'); } });
+    $('#m-save', b).addEventListener('click', async () => { if(await save(Store.update(`events/${ev.id}`, {contri, perHead:num(val(b, '#m-per')), contriPeople:num(val(b, '#m-ppl')), otherTarget:num(val(b, '#m-other')), upi:val(b, '#m-upi'), upiName:val(b, '#m-upiname'), budget:num(val(b, '#m-budget'))}))){ closeSheet(); toast('Money settings saved'); } });
   }});
 }
 function expenseSheet(ev, x){
@@ -900,6 +913,7 @@ async function createEvent(type, f){
 }
 async function deleteEvent(ev){
   const id = ev.id, subs = Object.fromEntries(SUBCOLS.map(k => [k, S[k]]));
+  if(E.inv.ready() && S.people.some(p => p.invite)) E.inv.revokeAll(ev).catch(() => {});
   goHome();
   for(const [k, list] of Object.entries(subs)) for(const d of list){ if(k === 'mood' && d.asset && S.assets){ try{ await S.assets.delete(d.asset); }catch(e){} } await save(Store.remove(`events/${id}/${k}/${d.id}`)); }
   if(await save(Store.remove(`events/${id}`))) toast(`${ev.name} deleted`, 'delete');
@@ -1238,7 +1252,7 @@ function runAct(e, t){
     case 'dismiss-local': lsSet(IMPKEY, 'dismissed'); S.localOffer = false; E.render(); break;
     case 'install': if(installEvt){ installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; E.refreshSheet(); }); } break;
     case 'peek': { const inp = t.parentElement.querySelector('input'); const show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; t.innerHTML = icon(show ? 'visibility_off' : 'visibility'); t.setAttribute('aria-label', show ? 'Hide passcode' : 'Show passcode'); inp.focus({preventScroll:true}); break; }
-    default: if(act.startsWith('wall-') || act === 'photo') E.photos.act(act, t, ev); else if(act.startsWith('run-')) E.run.act(act, t, ev);
+    default: if(act.startsWith('wall-') || act === 'photo') E.photos.act(act, t, ev); else if(act.startsWith('run-')) E.run.act(act, t, ev); else if(act.startsWith('inv-')) E.inv.act(act, t, ev);
   }
 }
 document.addEventListener('input', e => { if(e.target.id === 'g-search'){ S.query = e.target.value; E.render(); } else if(e.target.id === 'c-search'){ S.cq = e.target.value; E.render(); } });
