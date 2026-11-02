@@ -51,6 +51,9 @@ function afterRender(ev){
   if(S.cur && S.tab === 'photos' && ev) E.photos.after(ev);
   if(!S.cur && !S.gate){ ensureHomeData(); E.widgets.after(); }
   if(!S.gate) fitArt();
+  // on a narrow phone the sub-tabs scroll sideways: keep the chosen one in sight
+  const sel = $('.seg.subnav [aria-selected="true"]'), bar = sel && sel.parentElement;
+  if(bar && bar.scrollWidth > bar.clientWidth + 1){ const br = bar.getBoundingClientRect(), sr = sel.getBoundingClientRect(); if(sr.right > br.right - 4) bar.scrollLeft += sr.right - br.right + 12; else if(sr.left < br.left + 4) bar.scrollLeft -= br.left - sr.left + 12; }
 }
 /* sync status: a chip on home and in the sidebar, an icon in the event top bar only when something needs attention */
 function chipInner(){
@@ -178,7 +181,7 @@ function heroTile(e){
       <p class="hero-where">${line || (S.canWrite ? 'Add the time and venue' : '')}</p>
       ${fc ? `<p class="hero-wx">${E.widgets.wx(fc.sym, 20)}<span>${fc.temp}°, ${esc(fc.text)} that evening${fc.rain > 0.2 ? '. Plan for rain' : ''}</span></p>` : ''}
     </div>
-    ${S.canWrite ? `<div class="hero-act">${E.contriOn(e) ? `<button class="btn gold" data-act="quick-collect" data-id="${esc(e.id)}">${icon('currency_rupee')}Record a payment</button>` : ''}<button class="btn veil" data-act="quick-guests" data-id="${esc(e.id)}">${icon('person_add')}Add guests</button></div>` : ''}
+    ${S.canWrite ? `<div class="hero-act">${E.contriOn(e) ? `<button class="btn gold" data-act="quick-collect" data-id="${esc(e.id)}">${icon('currency_rupee')}<span class="lbl-l">Record a payment</span><span class="lbl-s">Payment</span></button>` : ''}<button class="btn veil" data-act="quick-guests" data-id="${esc(e.id)}">${icon('person_add')}<span class="lbl-l">Add guests</span><span class="lbl-s">Guests</span></button></div>` : ''}
   </article>`;
 }
 /* a tear-off calendar page for the date itself, and the only countdown on the screen */
@@ -798,8 +801,8 @@ function moneySheet(ev){
       <div class="grid2"><label class="field"><span>People chipping in</span><input class="input" type="number" inputmode="numeric" min="0" id="m-ppl" value="${ev.contriPeople || ''}" placeholder="e.g. 30"></label>
         <label class="field"><span>From family or others</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-other" value="${ev.otherTarget || ''}" placeholder="e.g. 10000"></div></label></div>
       <p class="hint" id="m-plan"></p>
-      <div class="grid2"><label class="field"><span>UPI ID for payments</span><input class="input" id="m-upi" maxlength="80" autocapitalize="off" spellcheck="false" placeholder="name@okaxis" value="${esc(ev.upi || '')}"></label>
-        <label class="field"><span>Name on the account</span><input class="input" id="m-upiname" maxlength="40" placeholder="As your bank shows it" value="${esc(ev.upiName || '')}"></label></div></div>
+      <label class="field"><span>UPI ID for payments</span><input class="input" id="m-upi" type="text" inputmode="email" maxlength="80" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="name@okaxis" value="${esc(ev.upi || '')}"></label>
+      <label class="field"><span>Name on the UPI account</span><input class="input" id="m-upiname" maxlength="40" autocomplete="name" placeholder="As your bank shows it" value="${esc(ev.upiName || '')}"></label></div>
     <label class="field"><span>Total budget</span><div class="money-in"><input class="input" type="number" inputmode="numeric" min="0" id="m-budget" value="${ev.budget || ''}" placeholder="Optional"></div></label>
     <div class="sheet-foot"><button class="btn" type="button" id="m-save">Save</button></div>`,
   mount: b => {

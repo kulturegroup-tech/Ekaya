@@ -267,7 +267,8 @@ const LAYOUTS = {
 /* ---------- editor ---------- */
 let ed = null;   // the single live editor
 /* phones: the plan is a preview that the page scrolls past; editing happens full screen */
-const phone = () => matchMedia('(max-width: 759px)').matches;
+// phones, including a phone held sideways, edit the plan full screen
+const phone = () => matchMedia('(max-width: 759px), (max-height: 500px) and (pointer: coarse)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function enterFull(st){
   if(st.el.classList.contains('full')) return;
@@ -291,7 +292,7 @@ function create(evId){
   el.innerHTML = `<svg class="canvas" xmlns="http://www.w3.org/2000/svg"><g class="vz-defs"></g><g class="vz-world"><g class="vz-ground"></g><g class="vz-dims"></g><g class="vz-items"></g><g class="vz-guides"></g><g class="vz-labels"></g><g class="vz-sel"></g></g></svg>
     <div class="vz-over">
       <div class="vz-top">
-        <button class="vz-chip vz-done" data-v="close" type="button">${icon('check')}<span>Done</span></button>
+        <button class="vz-chip vz-done" data-v="close" type="button" aria-label="Done">${icon('check')}<span>Done</span></button>
         <button class="vz-chip vz-title" data-v="settings" type="button" aria-label="Venue name, size and floor"><span class="vz-tt"><b class="vz-t1"></b><small class="vz-t2"></small></span>${icon('keyboard_arrow_down', false, 'xs')}</button>
         <span class="vz-grow"></span>
         <div class="vz-pill vz-hist"><button class="vz-ib vz-orient" data-v="orient" aria-label="Turn the plan to fill the screen" type="button">${icon('rotate_90_degrees_cw')}</button><button class="vz-ib" data-v="undo" aria-label="Undo" type="button">${icon('undo')}</button><button class="vz-ib" data-v="redo" aria-label="Redo" type="button">${icon('redo')}</button></div>
